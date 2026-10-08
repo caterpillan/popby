@@ -75,6 +75,22 @@ var pad=function(n){return(n<10?"0":"")+n};
 var tm=function(d){return d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})};
 function toast(m){var t=$("toast");t.textContent=m;t.className="toast show";clearTimeout(toast.h);toast.h=setTimeout(function(){t.className="toast"},3800)}
 function setSheet(h){$("sheet").innerHTML=h||"";$("scrim").className="scrim"+(h?" open":"")}
+var MON=["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+function fmtDate(iso){var p=iso.split("-");return +p[2]+" "+MON[+p[1]-1].replace(/^./,function(c){return c.toUpperCase()})+" "+p[0]}
+function parseDate(t){t=(t||"").toLowerCase().replace(/,/g," ").replace(/(\d)(st|nd|rd|th)\b/g,"$1").replace(/\s+/g," ").trim();if(!t)return null;
+ var now=new Date(),y=now.getFullYear(),d,m,yy,r;
+ if(t==="today")return todayStr();
+ if(t==="tomorrow"||t==="tmrw"){var x=new Date();x.setDate(x.getDate()+1);return x.getFullYear()+"-"+pad(x.getMonth()+1)+"-"+pad(x.getDate())}
+ if(r=t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)){yy=+r[1];m=+r[2];d=+r[3]}
+ else if(r=t.match(/^(\d{1,2})[\/.\-\s](\d{1,2})(?:[\/.\-\s](\d{2,4}))?$/)){d=+r[1];m=+r[2];yy=r[3]?+r[3]:0}
+ else if(r=t.match(/^(\d{1,2}) ?([a-z]{3,9})(?: (\d{2,4}))?$/)){d=+r[1];m=MON.indexOf(r[2].slice(0,3))+1;yy=r[3]?+r[3]:0}
+ else if(r=t.match(/^([a-z]{3,9}) (\d{1,2})(?: (\d{2,4}))?$/)){m=MON.indexOf(r[1].slice(0,3))+1;d=+r[2];yy=r[3]?+r[3]:0}
+ else return null;
+ if(!m||m>12||d<1)return null;if(yy&&yy<100)yy+=2000;
+ var yr=yy||y,dt=new Date(yr,m-1,d);if(dt.getMonth()!==m-1)return null;
+ if(!yy&&dt<new Date(y,now.getMonth(),now.getDate()))dt=new Date(y+1,m-1,d);
+ if(dt.getMonth()!==m-1)return null;
+ return dt.getFullYear()+"-"+pad(dt.getMonth()+1)+"-"+pad(dt.getDate())}
 function parseTime(t){t=(t||"").toLowerCase().replace(/\./g,"").trim();var m=t.match(/^(\d{1,2})(?:[:\s]?(\d{2}))?\s*(am|pm|a|p)?$/);if(!m)return null;var h=+m[1],mi=m[2]?+m[2]:0,ap=m[3];if(mi>59)return null;
  if(ap){if(h<1||h>12)return null;if(ap[0]==="p"&&h<12)h+=12;if(ap[0]==="a"&&h===12)h=0}else if(h>23)return null;
  return pad(h)+":"+pad(mi)}
@@ -142,7 +158,7 @@ function planSheet(){
  +'<label for="pt">What\'s the plan?</label><input id="pt" placeholder="Playground at Costco Park">'
  +'<label for="pw">Where</label><input id="pw" placeholder="Meeting spot or address">'
  +'<div class="two"><div><label for="pf">From</label><input id="pf" type="text" inputmode="text" autocomplete="off" value="10:00 am" placeholder="e.g. 10am or 2:30pm"></div><div><label for="pe">Until</label><input id="pe" type="text" inputmode="text" autocomplete="off" value="12:00 pm" placeholder="e.g. 12pm or 4:30pm"></div></div>'
- +'<label for="pd">Day</label><input id="pd" type="date" value="'+todayStr()+'"><div style="display:flex;gap:6px;margin:8px 0"><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="0" data-keep="1">Today</button><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="1" data-keep="1">Tomorrow</button><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="2" data-keep="1">In 2 days</button></div>'
+ +'<label for="pd">Day</label><input id="pd" type="text" inputmode="text" autocomplete="off" placeholder="e.g. 12 Oct, 12/10 or tomorrow" value="'+fmtDate(todayStr())+'"><button type="button" class="b sm" data-a="cal" data-t="pd" style="margin-top:6px">Calendar</button><input type="date" id="pd_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none"><div style="display:flex;gap:6px;margin:8px 0"><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="0" data-keep="1">Today</button><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="1" data-keep="1">Tomorrow</button><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="2" data-keep="1">In 2 days</button></div>'
  +'<label for="pg">Share with</label><select id="pg">'+ap.map(function(c){return '<option value="'+esc(c.circle_id)+'">'+esc(cname(c.circle_id,c.circles.name))+'</option>'}).join("")+'</select>'
  +'<label for="pn">Note (optional)</label><textarea id="pn" rows="2" placeholder="Come if you\'re free!"></textarea><div class="err" id="pe2"></div>'
  +'<button class="big" data-a="sendplan">Send to circle</button><button class="link" data-a="close">Cancel</button>');
@@ -158,7 +174,7 @@ function circlesSheet(msg){
  setSheet('<h2>Your circles</h2>'+(cards||'<p class="hint">You\'re not in a circle yet.</p>')
  +(pending.length?'<h2 style="font-size:18px;margin-top:16px">Waiting for your approval</h2><div class="card">'+pending.map(function(p){return '<div class="req"><div><b>'+esc(p.display_name)+'</b><div class="where">'+esc(p.circle_name)+'</div></div><div><button class="b sm on" data-a="decide" data-c="'+esc(p.circle_id)+'" data-p="'+esc(p.parent_id)+'" data-y="1">Approve</button> <button class="b sm" data-a="decide" data-c="'+esc(p.circle_id)+'" data-p="'+esc(p.parent_id)+'" data-y="0">Decline</button></div></div>'}).join("")+'</div>':'')
  +'<label for="cn">Start a new circle</label><input id="cn" placeholder="Class 2B">'
- +'<label for="ce2">Ends on (optional)</label><input id="ce2" type="date" min="'+todayStr()+'"><div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"><button type="button" class="b sm" data-a="qd" data-t="ce2" data-n="7">+1 week</button><button type="button" class="b sm" data-a="qd" data-t="ce2" data-n="30">+1 month</button><button type="button" class="b sm" data-a="qd" data-t="ce2" data-n="90">+3 months</button><button type="button" class="b sm" data-a="qd" data-t="ce2" data-n="0">No end date</button></div><p class="hint">Tap the box to pick from a calendar, or use a quick button.</p><p class="hint">Everyone sees this date before they join. When it passes, the circle and its plans disappear for everyone, so you are not left with old circles. Leave empty for a circle that keeps going.</p>'
+ +'<label for="ce2">Ends on (optional)</label><input id="ce2" type="text" inputmode="text" autocomplete="off" placeholder="e.g. 12 Oct, 12/10 or tomorrow"><button type="button" class="b sm" data-a="cal" data-t="ce2" style="margin-top:6px">Calendar</button><input type="date" id="ce2_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none"><div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"><button type="button" class="b sm" data-a="qd" data-t="ce2" data-n="7">+1 week</button><button type="button" class="b sm" data-a="qd" data-t="ce2" data-n="30">+1 month</button><button type="button" class="b sm" data-a="qd" data-t="ce2" data-n="90">+3 months</button><button type="button" class="b sm" data-a="qd" data-t="ce2" data-n="0">No end date</button></div><p class="hint">Type a date like 12 Oct or 12/10/2026, or use a button.</p><p class="hint">Everyone sees this date before they join. When it passes, the circle and its plans disappear for everyone, so you are not left with old circles. Leave empty for a circle that keeps going.</p>'
  +'<button class="big" data-a="mkcircle">Create circle</button>'
  +join+'<div class="err" id="ce">'+esc(msg||"")+'</div><button class="link" data-a="signout">Sign out</button><button class="link" data-a="close">Done</button>');
 }
@@ -169,7 +185,7 @@ function circleSheet(cid,msg){
  var act=roster.filter(function(r){return r.status==="approved"}),gone=roster.filter(function(r){return r.status==="removed"});
  setSheet('<h2>'+esc(cname(cid,ci.name))+'</h2>'+(nicks[cid]?'<p class="hint">Circle name: '+esc(ci.name)+'</p>':'')
  +'<div class="card"><b>'+esc(endLabel(ci.ends_on))+'</b><div class="where">'+(ci.ends_on?esc(longDate(ci.ends_on))+'. After this date the circle and its plans disappear for everyone.':'This circle has no end date.')+'</div>'
- +(org?'<label for="ed">Change end date</label><input id="ed" type="date" min="'+todayStr()+'" value="'+esc(ci.ends_on||"")+'"><div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="7">+1 week</button><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="30">+1 month</button><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="90">+3 months</button><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="0">No end date</button></div><p class="hint">Leave empty for no end date. Everyone sees the new date.</p><button class="b sm on" data-a="saveend" data-c="'+esc(cid)+'">Save date</button>':'')+'</div>'
+ +(org?'<label for="ed">Change end date</label><input id="ed" type="text" inputmode="text" autocomplete="off" placeholder="e.g. 12 Oct, 12/10 or tomorrow" value="'+esc(ci.ends_on?fmtDate(ci.ends_on):"")+'"><button type="button" class="b sm" data-a="cal" data-t="ed" style="margin-top:6px">Calendar</button><input type="date" id="ed_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none"><div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="7">+1 week</button><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="30">+1 month</button><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="90">+3 months</button><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="0">No end date</button></div><p class="hint">Leave empty for no end date. Everyone sees the new date.</p><button class="b sm on" data-a="saveend" data-c="'+esc(cid)+'">Save date</button>':'')+'</div>'
  +'<p class="hint">Invite code</p><div class="code">'+esc(ci.invite_code)+'</div>'
  +'<h2 style="font-size:18px;margin-top:16px">Members ('+act.length+')</h2><div class="card">'+act.map(function(r){
    return '<div class="req"><div><b>'+esc(r.display_name)+(r.parent_id===uid?' (you)':'')+'</b><div class="where">'+(r.role==="organiser"?"Organiser":"Member")+'</div></div>'
@@ -238,8 +254,10 @@ async function act(b){
   setSheet("");toast("Profile saved");await load()}
  else if(a==="newplan")planSheet();
  else if(a==="mkcircle"){var cn=v("cn");if(!cn){E("ce","Give your circle a name.");return}
-  var q=await sb.rpc("create_circle",{p_name:cn,p_ends:v("ce2")||null});if(q.error){E("ce",q.error.message);return}await load();circlesSheet("Circle created. Share the code so people can ask to join.")}
- else if(a==="qd"){var el=$(b.dataset.t),n=+b.dataset.n;if(!n&&!b.dataset.keep)el.value="";else{var d=new Date();d.setDate(d.getDate()+n);el.value=d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}}
+  var ED=null;if(v("ce2")){ED=parseDate(v("ce2"));if(!ED||ED<todayStr()){E("ce","Type the end date like 12 Oct or 12/10/2026, in the future.");return}}
+  var q=await sb.rpc("create_circle",{p_name:cn,p_ends:ED});if(q.error){E("ce",q.error.message);return}await load();circlesSheet("Circle created. Share the code so people can ask to join.")}
+ else if(a==="qd"){var el=$(b.dataset.t),n=+b.dataset.n;if(!n&&!b.dataset.keep)el.value="";else{var d=new Date();d.setDate(d.getDate()+n);el.value=fmtDate(d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()))}}
+ else if(a==="cal"){var ci2=$(b.dataset.t+"_c");try{var cur=parseDate($(b.dataset.t).value);if(cur)ci2.value=cur;ci2.onchange=function(){if(ci2.value)$(b.dataset.t).value=fmtDate(ci2.value)};ci2.showPicker?ci2.showPicker():ci2.click()}catch(e2){ci2.click()}}
  else if(a==="lookup"){var cd=v("cj");if(!cd){E("ce","Enter the invite code.");return}
   var lk=await sb.rpc("circle_preview",{p_code:cd});if(lk.error)throw lk.error;
   if(!lk.data||!lk.data.length){E("ce","No circle with that code, or it has ended.");return}
@@ -255,7 +273,8 @@ async function act(b){
  else if(a==="mkorg"){var on=(roster.find(function(r){return r.parent_id===b.dataset.p})||{}).display_name||"this person";
   if(!confirm("Make "+on+" an organiser? They will be able to approve and remove people."))return;
   var mo=await sb.rpc("make_organiser",{p_circle:b.dataset.c,p_parent:b.dataset.p});if(mo.error)throw mo.error;await loadRoster(b.dataset.c);circleSheet(b.dataset.c,on+" is now an organiser.")}
- else if(a==="saveend"){var se=await sb.rpc("set_circle_end",{p_circle:b.dataset.c,p_ends:v("ed")||null});if(se.error){E("ce3",se.error.message);return}
+ else if(a==="saveend"){var ED2=null;if(v("ed")){ED2=parseDate(v("ed"));if(!ED2||ED2<todayStr()){E("ce3","Type the end date like 12 Oct or 12/10/2026, in the future.");return}}
+  var se=await sb.rpc("set_circle_end",{p_circle:b.dataset.c,p_ends:ED2});if(se.error){E("ce3",se.error.message);return}
   await load();await loadRoster(b.dataset.c);circleSheet(b.dataset.c,"End date saved.")}
  else if(a==="savenick"){var nn=v("nn"),sn=nn?await sb.from("circle_nicknames").upsert({circle_id:b.dataset.c,parent_id:uid,nickname:nn}):await sb.from("circle_nicknames").delete().eq("circle_id",b.dataset.c).eq("parent_id",uid);
   if(sn.error)throw sn.error;await load();circleSheet(b.dataset.c,nn?"Saved. Only you see this name.":"Back to the circle name.")}
@@ -269,8 +288,8 @@ async function act(b){
   if(sel===b.dataset.c)sel="all";await load();circlesSheet()}
  else if(a==="sendplan"){var t=v("pt");if(!t){E("pe2","Add what the plan is.");return}
   var tf=parseTime(v("pf")),te=parseTime(v("pe"));if(!tf||!te){E("pe2","Type times like 10am or 2:30pm.");return}
-  if(!v("pd")){E("pe2","Pick a day.");return}
-  var s=new Date(v("pd")+"T"+tf),e=new Date(v("pd")+"T"+te);
+  var dd=parseDate(v("pd"));if(!dd){E("pe2","Type the day like 12 Oct, 12/10 or tomorrow.");return}
+  var s=new Date(dd+"T"+tf),e=new Date(dd+"T"+te);
   if(!(e>s)){E("pe2","The end time has to be after the start time.");return}
   var ins=await sb.from("plans").insert({circle_id:v("pg"),host_id:uid,child_id:v("pc"),kind:v("pk"),title:t,place_name:v("pw")||"Location to be shared",starts_at:s.toISOString(),ends_at:e.toISOString(),note:v("pn")||null});
   if(ins.error)throw ins.error;setSheet("");toast("Sent. Your circle has been notified.");await load()}

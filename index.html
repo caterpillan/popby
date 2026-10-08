@@ -108,9 +108,9 @@ async function load(){
  var r=await Promise.all([
   sb.from("parents").select("*").eq("id",uid).maybeSingle(),
   sb.from("children").select("*").eq("parent_id",uid),
-  sb.from("circle_members").select("circle_id,role,status,circles(name,invite_code)").eq("parent_id",uid),
-  sb.from("plans").select("*,host:parents(display_name),child:children(first_name),circle:circles(name)").gte("ends_at",start.toISOString()).order("starts_at"),
-  sb.from("plan_replies").select("plan_id,parent_id,parents(display_name)"),
+  sb.from("circle_members").select("circle_id,role,status,circles!circle_id(name,invite_code)").eq("parent_id",uid),
+  sb.from("plans").select("*,host:parents!host_id(display_name),child:children!child_id(first_name),circle:circles!circle_id(name)").gte("ends_at",start.toISOString()).order("starts_at"),
+  sb.from("plan_replies").select("plan_id,parent_id,parents!parent_id(display_name)"),
   sb.rpc("pending_requests")]);
  var bad=r.find(function(x){return x.error});if(bad){toast("Couldn't load: "+bad.error.message)}
  me=r[0].data;kids=r[1].data||[];circles=r[2].data||[];plans=r[3].data||[];replies=r[4].data||[];pending=r[5].data||[];

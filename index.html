@@ -66,8 +66,8 @@ input,select,textarea{width:100%;font:inherit;padding:12px;border-radius:12px;bo
 <script src="config.js"></script>
 <script>
 // Your Supabase URL and anon key now live in config.js (see README). The anon key is safe to publish; the database rules protect the data.
-var SUPABASE_URL=window.POPBY_URL||"https://ibojcsptkmwwdbnmgoam.supabase.co";
-var SUPABASE_ANON_KEY=window.POPBY_KEY||"sb_publishable_KnFNch4lX3z5CJ0mRVOXRQ_Ddjh34Eh";
+var SUPABASE_URL=window.POPBY_URL||"PASTE_YOUR_SUPABASE_URL";
+var SUPABASE_ANON_KEY=window.POPBY_KEY||"PASTE_YOUR_ANON_KEY";
 
 var $=function(i){return document.getElementById(i)};
 var esc=function(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
@@ -75,6 +75,9 @@ var pad=function(n){return(n<10?"0":"")+n};
 var tm=function(d){return d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})};
 function toast(m){var t=$("toast");t.textContent=m;t.className="toast show";clearTimeout(toast.h);toast.h=setTimeout(function(){t.className="toast"},3800)}
 function setSheet(h){$("sheet").innerHTML=h||"";$("scrim").className="scrim"+(h?" open":"")}
+function parseTime(t){t=(t||"").toLowerCase().replace(/\./g,"").trim();var m=t.match(/^(\d{1,2})(?:[:\s]?(\d{2}))?\s*(am|pm|a|p)?$/);if(!m)return null;var h=+m[1],mi=m[2]?+m[2]:0,ap=m[3];if(mi>59)return null;
+ if(ap){if(h<1||h>12)return null;if(ap[0]==="p"&&h<12)h+=12;if(ap[0]==="a"&&h===12)h=0}else if(h>23)return null;
+ return pad(h)+":"+pad(mi)}
 function todayStr(){var d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
 function dayLabel(d){return d.toDateString()===new Date().toDateString()?"Today":d.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})}
 
@@ -136,10 +139,10 @@ function planSheet(){
  var ap=approved();
  setSheet('<h2>Share a plan</h2><label for="pk">Type</label><select id="pk"><option value="dropin">Drop-in (no reply needed)</option><option value="party">Party (RSVP)</option></select>'
  +'<label for="pc">Which child?</label><select id="pc">'+kids.map(function(k){return '<option value="'+esc(k.id)+'">'+esc(k.first_name)+'</option>'}).join("")+'</select>'
- +'<label for="pt">What\'s the plan?</label><input id="pt" placeholder="Picnic in the park">'
+ +'<label for="pt">What\'s the plan?</label><input id="pt" placeholder="Playground at Costco Park">'
  +'<label for="pw">Where</label><input id="pw" placeholder="Meeting spot or address">'
- +'<div class="two"><div><label for="pf">From</label><input id="pf" type="time" value="10:00"></div><div><label for="pe">Until</label><input id="pe" type="time" value="12:00"></div></div>'
- +'<label for="pd">Day</label><input id="pd" type="date" value="'+todayStr()+'">'
+ +'<div class="two"><div><label for="pf">From</label><input id="pf" type="text" inputmode="text" autocomplete="off" value="10:00 am" placeholder="e.g. 10am or 2:30pm"></div><div><label for="pe">Until</label><input id="pe" type="text" inputmode="text" autocomplete="off" value="12:00 pm" placeholder="e.g. 12pm or 4:30pm"></div></div>'
+ +'<label for="pd">Day</label><input id="pd" type="date" value="'+todayStr()+'"><div style="display:flex;gap:6px;margin:8px 0"><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="0" data-keep="1">Today</button><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="1" data-keep="1">Tomorrow</button><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="2" data-keep="1">In 2 days</button></div>'
  +'<label for="pg">Share with</label><select id="pg">'+ap.map(function(c){return '<option value="'+esc(c.circle_id)+'">'+esc(cname(c.circle_id,c.circles.name))+'</option>'}).join("")+'</select>'
  +'<label for="pn">Note (optional)</label><textarea id="pn" rows="2" placeholder="Come if you\'re free!"></textarea><div class="err" id="pe2"></div>'
  +'<button class="big" data-a="sendplan">Send to circle</button><button class="link" data-a="close">Cancel</button>');
@@ -236,7 +239,7 @@ async function act(b){
  else if(a==="newplan")planSheet();
  else if(a==="mkcircle"){var cn=v("cn");if(!cn){E("ce","Give your circle a name.");return}
   var q=await sb.rpc("create_circle",{p_name:cn,p_ends:v("ce2")||null});if(q.error){E("ce",q.error.message);return}await load();circlesSheet("Circle created. Share the code so people can ask to join.")}
- else if(a==="qd"){var el=$(b.dataset.t),n=+b.dataset.n;if(!n)el.value="";else{var d=new Date();d.setDate(d.getDate()+n);el.value=d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}}
+ else if(a==="qd"){var el=$(b.dataset.t),n=+b.dataset.n;if(!n&&!b.dataset.keep)el.value="";else{var d=new Date();d.setDate(d.getDate()+n);el.value=d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}}
  else if(a==="lookup"){var cd=v("cj");if(!cd){E("ce","Enter the invite code.");return}
   var lk=await sb.rpc("circle_preview",{p_code:cd});if(lk.error)throw lk.error;
   if(!lk.data||!lk.data.length){E("ce","No circle with that code, or it has ended.");return}
@@ -265,7 +268,9 @@ async function act(b){
   var l=await sb.rpc("leave_circle",{p_circle:b.dataset.c});if(l.error){toast(l.error.message);return}
   if(sel===b.dataset.c)sel="all";await load();circlesSheet()}
  else if(a==="sendplan"){var t=v("pt");if(!t){E("pe2","Add what the plan is.");return}
-  var s=new Date(v("pd")+"T"+v("pf")),e=new Date(v("pd")+"T"+v("pe"));
+  var tf=parseTime(v("pf")),te=parseTime(v("pe"));if(!tf||!te){E("pe2","Type times like 10am or 2:30pm.");return}
+  if(!v("pd")){E("pe2","Pick a day.");return}
+  var s=new Date(v("pd")+"T"+tf),e=new Date(v("pd")+"T"+te);
   if(!(e>s)){E("pe2","The end time has to be after the start time.");return}
   var ins=await sb.from("plans").insert({circle_id:v("pg"),host_id:uid,child_id:v("pc"),kind:v("pk"),title:t,place_name:v("pw")||"Location to be shared",starts_at:s.toISOString(),ends_at:e.toISOString(),note:v("pn")||null});
   if(ins.error)throw ins.error;setSheet("");toast("Sent. Your circle has been notified.");await load()}

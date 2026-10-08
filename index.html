@@ -66,6 +66,7 @@ input,select,textarea{width:100%;font:inherit;padding:12px;border-radius:12px;bo
 <script src="config.js"></script>
 <script>
 // Your Supabase URL and anon key now live in config.js (see README). The anon key is safe to publish; the database rules protect the data.
+var VAPID_KEY=window.POPBY_VAPID||"BE57jeKqoeceKvb-pJORjLhdYNWH_U8GvTCw03z0tC0BDfygs2rQ2Ja25sinoSUjFcEhZoryPcrgpmS3ieE3SCs";
 var SUPABASE_URL=window.POPBY_URL||"PASTE_YOUR_SUPABASE_URL";
 var SUPABASE_ANON_KEY=window.POPBY_KEY||"PASTE_YOUR_ANON_KEY";
 
@@ -196,6 +197,17 @@ function circleSheet(cid,msg){
  +'<label for="nn">Your own name for this circle</label><input id="nn" value="'+esc(nicks[cid]||"")+'" placeholder="'+esc(ci.name)+'"><p class="hint">Only you see this name. Leave empty to use the circle name.</p><button class="b sm on" data-a="savenick" data-c="'+esc(cid)+'">Save name</button>'
  +'<div class="err" id="ce3">'+esc(msg||"")+'</div><button class="link" data-a="leave" data-c="'+esc(cid)+'">Leave this circle</button><button class="link" data-a="circles">Back</button>');
 }
+function b64u(k){var p="=".repeat((4-k.length%4)%4),b=(k+p).replace(/-/g,"+").replace(/_/g,"/"),r=atob(b),o=new Uint8Array(r.length);for(var i=0;i<r.length;i++)o[i]=r.charCodeAt(i);return o}
+function bufb64u(buf){var a=new Uint8Array(buf),s="";for(var i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")}
+async function pushState(){
+ if(!("serviceWorker" in navigator)||!("PushManager" in window)||!("Notification" in window))return{s:"unsupported"};
+ if(Notification.permission==="denied")return{s:"denied"};
+ try{var reg=await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription();return{s:sub&&Notification.permission==="granted"?"on":"off",sub:sub}}catch(e){return{s:"unsupported"}}}
+async function pushBox(){
+ var box=$("pushbox");if(!box)return;var st=await pushState();box=$("pushbox");if(!box)return;
+ var ios=/iphone|ipad|ipod/i.test(navigator.userAgent);
+ var msg={on:"On for this phone. You'll get an alert when someone in your circles shares or changes a plan.",off:"Get an alert when someone in your circles shares or changes a plan, even when the app is closed.",denied:"Notifications are blocked. Turn them on in your phone's settings for this app, then come back.",unsupported:ios?"On iPhone, add Pop-by to your Home Screen first (Share > Add to Home Screen), then open it from there to turn this on.":"This browser can't do notifications."}[st.s];
+ box.innerHTML='<p class="hint">'+esc(msg)+'</p>'+(st.s==="on"?'<button class="b sm" data-a="pushoff">Turn off</button>':st.s==="off"?'<button class="b sm on" data-a="pushon">Turn on notifications</button>':'')}
 function profileSheet(msg){
  var hideList='<h2 style="font-size:18px;margin-top:22px">Hide my plans from</h2><p class="hint">People you hide never see your plans, or who replied to them. They are not told. Everyone else in the circle still sees your plans.</p>'
   +(contacts.length?contacts.map(function(p){var h=hiddenIds.indexOf(p.id)>-1;return '<div class="req"><b>'+esc(p.display_name)+'</b><button class="b sm'+(h?' on':'')+'" data-a="hidetoggle" data-p="'+esc(p.id)+'">'+(h?'Hidden':'Hide')+'</button></div>'}).join(""):'<p class="hint">Parents in your circles will appear here.</p>');
@@ -203,7 +215,8 @@ function profileSheet(msg){
  +'<label>Your children</label>'
  +kids.map(function(k){return '<div class="req"><input data-kid="'+esc(k.id)+'" value="'+esc(k.first_name)+'" aria-label="Child first name"><button class="b sm del" data-a="rmkid" data-k="'+esc(k.id)+'">Remove</button></div>'}).join("")
  +'<label for="nk">Add a child</label><input id="nk" placeholder="First name">'
- +'<div class="err" id="pre">'+esc(msg||"")+'</div><button class="big" data-a="saveprofile">Save changes</button>'+hideList+'<button class="link" data-a="close">Close</button>');
+ +'<div class="err" id="pre">'+esc(msg||"")+'</div><button class="big" data-a="saveprofile">Save changes</button>'+'<h2 style="font-size:18px;margin-top:22px">Notifications</h2><div id="pushbox"><p class="hint">Checking...</p></div>'+hideList+'<button class="link" data-a="close">Close</button>');
+ pushBox();
 }
 function editSheet(pid){
  var p=plans.find(function(x){return x.id===pid});if(!p)return;
@@ -248,7 +261,7 @@ async function act(b){
   var em=v("em"),pw=v("pw");if(!em||pw.length<6){E("ae","Enter your email and a password of at least 6 characters.");return}
   var r=a==="signin"?await sb.auth.signInWithPassword({email:em,password:pw}):await sb.auth.signUp({email:em,password:pw});
   if(r.error)E("ae",r.error.message);else if(a==="signup"&&!r.data.session)E("ae","Check your email to confirm, then sign in.")}
- else if(a==="signout"){await sb.auth.signOut();subscribed=false;sb.removeAllChannels()}
+ else if(a==="signout"){try{var ps=await pushState();if(ps.sub){await sb.rpc("drop_push_sub",{p_endpoint:ps.sub.endpoint});await ps.sub.unsubscribe()}}catch(e3){}await sb.auth.signOut();subscribed=false;sb.removeAllChannels()}
  else if(a==="saveme"){var n=v("sn"),k=v("sk").split(",").map(function(x){return x.trim()}).filter(Boolean);
   if(!n||!k.length){E("se","Enter your name and at least one child.");return}
   var r1=await sb.from("parents").upsert({id:uid,display_name:n});if(r1.error)throw r1.error;
@@ -312,6 +325,12 @@ async function act(b){
  else if(a==="reply"){var pid=b.dataset.p,has=replies.some(function(x){return x.plan_id===pid&&x.parent_id===uid});
   var rr=has?await sb.from("plan_replies").delete().eq("plan_id",pid).eq("parent_id",uid):await sb.from("plan_replies").insert({plan_id:pid,parent_id:uid,status:"going"});
   if(rr.error)throw rr.error;toast(has?"Removed your reply":"They know you're coming");await load()}
+ else if(a==="pushon"){
+  var perm=await Notification.requestPermission();if(perm!=="granted"){await pushBox();return}
+  var reg=await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription()||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(VAPID_KEY)});
+  var r2=await sb.rpc("save_push_sub",{p_endpoint:sub.endpoint,p_p256dh:bufb64u(sub.getKey("p256dh")),p_auth:bufb64u(sub.getKey("auth"))});
+  if(r2.error)throw r2.error;await pushBox();toast("Notifications are on.")}
+ else if(a==="pushoff"){var st2=await pushState();if(st2.sub){await sb.rpc("drop_push_sub",{p_endpoint:st2.sub.endpoint});await st2.sub.unsubscribe()}await pushBox();toast("Notifications are off.")}
  else if(a==="editplan"){editSheet(b.dataset.p)}
  else if(a==="saveplan"){var et=v("et");if(!et){E("ee2","Add what the plan is.");return}
   var f2=parseTime(v("ef")),u2=parseTime(v("ee"));if(!f2||!u2){E("ee2","Type times like 10am or 2:30pm.");return}

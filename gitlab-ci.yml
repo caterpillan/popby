@@ -1,0 +1,11 @@
+# GitLab Pages: publishes the app files on every push to the default branch.
+pages:
+  stage: deploy
+  script:
+    - mkdir -p public
+    - cp index.html config.js sw.js manifest.webmanifest icon.svg icon-192.png icon-512.png apple-touch-icon.png public/
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

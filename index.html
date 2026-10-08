@@ -66,8 +66,8 @@ input,select,textarea{width:100%;font:inherit;padding:12px;border-radius:12px;bo
 <script src="config.js"></script>
 <script>
 // Your Supabase URL and anon key now live in config.js (see README). The anon key is safe to publish; the database rules protect the data.
-var SUPABASE_URL=window.POPBY_URL||"https://ibojcsptkmwwdbnmgoam.supabase.co";
-var SUPABASE_ANON_KEY=window.POPBY_KEY||"sb_publishable_KnFNch4lX3z5CJ0mRVOXRQ_Ddjh34Eh";
+var SUPABASE_URL=window.POPBY_URL||"PASTE_YOUR_SUPABASE_URL";
+var SUPABASE_ANON_KEY=window.POPBY_KEY||"PASTE_YOUR_ANON_KEY";
 
 var $=function(i){return document.getElementById(i)};
 var esc=function(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
@@ -79,6 +79,11 @@ function todayStr(){var d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()
 function dayLabel(d){return d.toDateString()===new Date().toDateString()?"Today":d.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})}
 
 var sb,uid=null,me=null,kids=[],circles=[],plans=[],replies=[],pending=[],sel="all",subscribed=false,toastFor=null,timer=null;
+var nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null;
+function daysLeft(ds){var e=new Date(ds+"T00:00:00"),t=new Date();t.setHours(0,0,0,0);return Math.round((e-t)/864e5)}
+function longDate(ds){return new Date(ds+"T00:00:00").toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short",year:"numeric"})}
+function endLabel(ds){if(!ds)return "No end date";var n=daysLeft(ds);if(n<0)return "Ended";if(n===0)return "Ends today";if(n===1)return "Ends tomorrow";if(n<=14)return "Ends in "+n+" days";return "Ends "+new Date(ds+"T00:00:00").toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"})}
+function cname(cid,fallback){return nicks[cid]||fallback||"Circle"}
 $("scrim").onclick=function(e){if(e.target===$("scrim")&&me)setSheet("")};
 
 if(SUPABASE_URL.indexOf("PASTE")===0){$("app").innerHTML='<h1>Pop-by</h1><p class="sub">Create config.js with your Supabase URL and anon key (see README).</p>'}
@@ -109,16 +114,21 @@ async function load(){
  var r=await Promise.all([
   sb.from("parents").select("*").eq("id",uid).maybeSingle(),
   sb.from("children").select("*").eq("parent_id",uid),
-  sb.from("circle_members").select("circle_id,role,status,circles!circle_id(name,invite_code)").eq("parent_id",uid),
+  sb.from("circle_members").select("circle_id,role,status,circles!circle_id(name,invite_code,ends_on)").eq("parent_id",uid),
   sb.from("plans").select("*,host:parents!host_id(display_name),child:children!child_id(first_name),circle:circles!circle_id(name)").gte("ends_at",start.toISOString()).order("starts_at"),
   sb.from("plan_replies").select("plan_id,parent_id,parents!parent_id(display_name)"),
-  sb.rpc("pending_requests")]);
+  sb.rpc("pending_requests"),
+  sb.from("circle_nicknames").select("circle_id,nickname")]);
  var bad=r.find(function(x){return x.error});if(bad){toast("Couldn't load: "+bad.error.message)}
  me=r[0].data;kids=r[1].data||[];circles=r[2].data||[];plans=r[3].data||[];replies=r[4].data||[];pending=r[5].data||[];
+ nicks={};(r[6].data||[]).forEach(function(n){nicks[n.circle_id]=n.nickname});
+ if(sel!=="all"&&!approved().some(function(c){return c.circle_id===sel}))sel="all";
  if(toastFor){var p=plans.find(function(x){return x.id===toastFor});if(p)toast("New: "+(p.host&&p.host.display_name)+" · "+p.title+", "+tm(new Date(p.starts_at))+"–"+tm(new Date(p.ends_at)));toastFor=null}
  draw();
 }
-function approved(){return circles.filter(function(c){return c.status==="approved"})}
+function approved(){return circles.filter(function(c){return c.status==="approved"&&c.circles&&!(c.circles.ends_on&&daysLeft(c.circles.ends_on)<0)})}
+async function loadContacts(){var pc=await sb.from("parents").select("id,display_name").neq("id",uid).order("display_name");var hh=await sb.from("hidden_from").select("hidden_id");contacts=pc.data||[];hiddenIds=(hh.data||[]).map(function(x){return x.hidden_id})}
+async function loadRoster(cid){var r=await sb.rpc("circle_roster",{p_circle:cid});if(r.error)throw r.error;roster=r.data||[]}
 function setupSheet(){
  setSheet('<h2>Welcome to Pop-by</h2><p class="hint">Only parents in circles you join will see this.</p><label for="sn">Your first name and last initial</label><input id="sn" placeholder="Priya S."><label for="sk">Your children\'s first names (comma separated)</label><input id="sk" placeholder="Aarav, Mia"><div class="err" id="se"></div><button class="big" data-a="saveme">Continue</button>');
 }
@@ -130,40 +140,67 @@ function planSheet(){
  +'<label for="pw">Where</label><input id="pw" placeholder="Meeting spot or address">'
  +'<div class="two"><div><label for="pf">From</label><input id="pf" type="time" value="10:00"></div><div><label for="pe">Until</label><input id="pe" type="time" value="12:00"></div></div>'
  +'<label for="pd">Day</label><input id="pd" type="date" value="'+todayStr()+'">'
- +'<label for="pg">Share with</label><select id="pg">'+ap.map(function(c){return '<option value="'+esc(c.circle_id)+'">'+esc(c.circles.name)+'</option>'}).join("")+'</select>'
+ +'<label for="pg">Share with</label><select id="pg">'+ap.map(function(c){return '<option value="'+esc(c.circle_id)+'">'+esc(cname(c.circle_id,c.circles.name))+'</option>'}).join("")+'</select>'
  +'<label for="pn">Note (optional)</label><textarea id="pn" rows="2" placeholder="Come if you\'re free!"></textarea><div class="err" id="pe2"></div>'
  +'<button class="big" data-a="sendplan">Send to circle</button><button class="link" data-a="close">Cancel</button>');
 }
 function circlesSheet(msg){
- setSheet('<h2>Your circles</h2>'+(circles.length?circles.map(function(c){var ok=c.status==="approved";
-  return '<div class="card"><div class="top"><div><b>'+esc(ok?c.circles.name:"Waiting for approval")+'</b><div class="where">'+(ok?(c.role==="organiser"?"You organise this circle":"Member"):"The organiser has to approve you first")+'</div></div><button class="b sm del" data-a="leave" data-c="'+esc(c.circle_id)+'">Leave</button></div>'+(ok?'<p class="hint">Invite code</p><div class="code">'+esc(c.circles.invite_code)+'</div>':'')+'</div>'}).join(""):'<p class="hint">You\'re not in a circle yet.</p>')
+ var ap=approved(),wait=circles.filter(function(c){return c.status==="pending"});
+ var cards=ap.map(function(c){var ci=c.circles,id=c.circle_id;
+  return '<div class="card"><div class="top"><div><b>'+esc(cname(id,ci.name))+'</b>'+(nicks[id]?'<div class="where">'+esc(ci.name)+'</div>':'')+'<div class="where">'+(c.role==="organiser"?"You organise this circle · ":"")+esc(endLabel(ci.ends_on))+'</div></div><button class="b sm" data-a="opencircle" data-c="'+esc(id)+'">Open</button></div></div>'}).join("")
+  +wait.map(function(c){return '<div class="card"><div class="top"><div><b>Waiting for approval</b><div class="where">The organiser has to approve you first</div></div><button class="b sm del" data-a="leave" data-c="'+esc(c.circle_id)+'">Withdraw</button></div></div>'}).join("");
+ var join=joinInfo
+  ?'<div class="card"><b>'+esc(joinInfo.name)+'</b><div class="where">Organised by '+esc(joinInfo.organiser)+'</div><div class="where">'+esc(endLabel(joinInfo.ends_on))+(joinInfo.ends_on?' ('+esc(longDate(joinInfo.ends_on))+')':'')+'</div><p class="hint">The organiser has to approve you. You can leave at any time.</p><button class="big" data-a="joincircle">Request to join</button><button class="link" data-a="clearjoin">Not this one</button></div>'
+  :'<label for="cj">Or join with a code</label><input id="cj" maxlength="6" placeholder="ABC123" style="text-transform:uppercase"><button class="big" data-a="lookup">Find circle</button>';
+ setSheet('<h2>Your circles</h2>'+(cards||'<p class="hint">You\'re not in a circle yet.</p>')
  +(pending.length?'<h2 style="font-size:18px;margin-top:16px">Waiting for your approval</h2><div class="card">'+pending.map(function(p){return '<div class="req"><div><b>'+esc(p.display_name)+'</b><div class="where">'+esc(p.circle_name)+'</div></div><div><button class="b sm on" data-a="decide" data-c="'+esc(p.circle_id)+'" data-p="'+esc(p.parent_id)+'" data-y="1">Approve</button> <button class="b sm" data-a="decide" data-c="'+esc(p.circle_id)+'" data-p="'+esc(p.parent_id)+'" data-y="0">Decline</button></div></div>'}).join("")+'</div>':'')
- +'<label for="cn">Start a new circle</label><input id="cn" placeholder="Class 2B"><button class="big" data-a="mkcircle">Create circle</button>'
- +'<label for="cj">Or join with a code</label><input id="cj" maxlength="6" placeholder="ABC123" style="text-transform:uppercase"><button class="big" data-a="joincircle">Request to join</button><div class="err" id="ce">'+esc(msg||"")+'</div><button class="link" data-a="signout">Sign out</button><button class="link" data-a="close">Done</button>');
+ +'<label for="cn">Start a new circle</label><input id="cn" placeholder="Class 2B">'
+ +'<label for="ce2">Ends on (optional)</label><input id="ce2" type="date" min="'+todayStr()+'"><p class="hint">Everyone sees this date before they join. When it passes, the circle and its plans disappear for everyone, so you are not left with old circles. Leave empty for a circle that keeps going.</p>'
+ +'<button class="big" data-a="mkcircle">Create circle</button>'
+ +join+'<div class="err" id="ce">'+esc(msg||"")+'</div><button class="link" data-a="signout">Sign out</button><button class="link" data-a="close">Done</button>');
+}
+function circleSheet(cid,msg){
+ var c=circles.find(function(x){return x.circle_id===cid});
+ if(!c||!c.circles){circlesSheet();return}
+ var org=c.role==="organiser",ci=c.circles;
+ var act=roster.filter(function(r){return r.status==="approved"}),gone=roster.filter(function(r){return r.status==="removed"});
+ setSheet('<h2>'+esc(cname(cid,ci.name))+'</h2>'+(nicks[cid]?'<p class="hint">Circle name: '+esc(ci.name)+'</p>':'')
+ +'<div class="card"><b>'+esc(endLabel(ci.ends_on))+'</b><div class="where">'+(ci.ends_on?esc(longDate(ci.ends_on))+'. After this date the circle and its plans disappear for everyone.':'This circle has no end date.')+'</div>'
+ +(org?'<label for="ed">Change end date</label><input id="ed" type="date" min="'+todayStr()+'" value="'+esc(ci.ends_on||"")+'"><p class="hint">Leave empty for no end date. Everyone sees the new date.</p><button class="b sm on" data-a="saveend" data-c="'+esc(cid)+'">Save date</button>':'')+'</div>'
+ +'<p class="hint">Invite code</p><div class="code">'+esc(ci.invite_code)+'</div>'
+ +'<h2 style="font-size:18px;margin-top:16px">Members ('+act.length+')</h2><div class="card">'+act.map(function(r){
+   return '<div class="req"><div><b>'+esc(r.display_name)+(r.parent_id===uid?' (you)':'')+'</b><div class="where">'+(r.role==="organiser"?"Organiser":"Member")+'</div></div>'
+   +(org&&r.parent_id!==uid&&r.role!=="organiser"?'<div><button class="b sm" data-a="mkorg" data-c="'+esc(cid)+'" data-p="'+esc(r.parent_id)+'">Make organiser</button> <button class="b sm del" data-a="rmmem" data-c="'+esc(cid)+'" data-p="'+esc(r.parent_id)+'">Remove</button></div>':'')+'</div>'}).join("")+'</div>'
+ +(org&&gone.length?'<h2 style="font-size:18px;margin-top:16px">Removed ('+gone.length+')</h2><p class="hint">Only you can see this list. They are not told, and they cannot see this circle or rejoin until you allow them back.</p><div class="card">'+gone.map(function(r){return '<div class="req"><b>'+esc(r.display_name)+'</b><button class="b sm" data-a="allow" data-c="'+esc(cid)+'" data-p="'+esc(r.parent_id)+'">Allow back</button></div>'}).join("")+'</div>':'')
+ +'<label for="nn">Your own name for this circle</label><input id="nn" value="'+esc(nicks[cid]||"")+'" placeholder="'+esc(ci.name)+'"><p class="hint">Only you see this name. Leave empty to use the circle name.</p><button class="b sm on" data-a="savenick" data-c="'+esc(cid)+'">Save name</button>'
+ +'<div class="err" id="ce3">'+esc(msg||"")+'</div><button class="link" data-a="leave" data-c="'+esc(cid)+'">Leave this circle</button><button class="link" data-a="circles">Back</button>');
 }
 function profileSheet(msg){
+ var hideList='<h2 style="font-size:18px;margin-top:22px">Hide my plans from</h2><p class="hint">People you hide never see your plans, or who replied to them. They are not told. Everyone else in the circle still sees your plans.</p>'
+  +(contacts.length?contacts.map(function(p){var h=hiddenIds.indexOf(p.id)>-1;return '<div class="req"><b>'+esc(p.display_name)+'</b><button class="b sm'+(h?' on':'')+'" data-a="hidetoggle" data-p="'+esc(p.id)+'">'+(h?'Hidden':'Hide')+'</button></div>'}).join(""):'<p class="hint">Parents in your circles will appear here.</p>');
  setSheet('<h2>Your profile</h2><label for="pn1">Your first name and last initial</label><input id="pn1" value="'+esc(me.display_name)+'">'
  +'<label>Your children</label>'
  +kids.map(function(k){return '<div class="req"><input data-kid="'+esc(k.id)+'" value="'+esc(k.first_name)+'" aria-label="Child first name"><button class="b sm del" data-a="rmkid" data-k="'+esc(k.id)+'">Remove</button></div>'}).join("")
  +'<label for="nk">Add a child</label><input id="nk" placeholder="First name">'
- +'<div class="err" id="pre">'+esc(msg||"")+'</div><button class="big" data-a="saveprofile">Save changes</button><button class="link" data-a="close">Cancel</button>');
+ +'<div class="err" id="pre">'+esc(msg||"")+'</div><button class="big" data-a="saveprofile">Save changes</button>'+hideList+'<button class="link" data-a="close">Close</button>');
 }
 function draw(){
  if(!me)return;
  var ap=approved(),ids=ap.map(function(c){return c.circle_id}),now=new Date();
- var chips='<button class="chip" data-a="sel" data-c="all" aria-pressed="'+(sel==="all")+'">All circles</button>'+ap.map(function(c){return '<button class="chip" data-a="sel" data-c="'+esc(c.circle_id)+'" aria-pressed="'+(sel===c.circle_id)+'">'+esc(c.circles.name)+'</button>'}).join("");
+ var chips='<button class="chip" data-a="sel" data-c="all" aria-pressed="'+(sel==="all")+'">All circles</button>'+ap.map(function(c){return '<button class="chip" data-a="sel" data-c="'+esc(c.circle_id)+'" aria-pressed="'+(sel===c.circle_id)+'">'+esc(cname(c.circle_id,c.circles.name))+'</button>'}).join("");
  var list=plans.filter(function(p){return ids.indexOf(p.circle_id)>-1&&(sel==="all"||p.circle_id===sel)});
  var cards=list.map(function(p){
   var party=p.kind==="party",s=new Date(p.starts_at),e=new Date(p.ends_at);
   var rs=replies.filter(function(r){return r.plan_id===p.id}),mineR=rs.some(function(r){return r.parent_id===uid});
   var isNow=s<=now&&now<=e,ended=e<now,host=p.host_id===uid;
   var label=party?(mineR?"You're going":"I'm going"):(mineR?"You're joining":"I might pop by");
-  return '<article class="card '+(party?"party":isNow?"now":"")+(ended?" old":"")+'"><div class="top"><div><div class="who">'+esc(p.host&&p.host.display_name)+' · '+esc(p.circle&&p.circle.name)+'</div><div class="title">'+esc(p.title)+'</div></div><span class="tag '+(party?"p":"")+'">'+(ended?"Ended":party?"RSVP":isNow?"Happening now":"Drop-in")+'</span></div>'
+  return '<article class="card '+(party?"party":isNow?"now":"")+(ended?" old":"")+'"><div class="top"><div><div class="who">'+esc(p.host&&p.host.display_name)+' · '+esc(cname(p.circle_id,p.circle&&p.circle.name))+'</div><div class="title">'+esc(p.title)+'</div></div><span class="tag '+(party?"p":"")+'">'+(ended?"Ended":party?"RSVP":isNow?"Happening now":"Drop-in")+'</span></div>'
   +'<div class="when">'+esc(dayLabel(s))+', '+tm(s)+'–'+tm(e)+(p.child?' · '+esc(p.child.first_name):'')+'</div><div class="where">'+esc(p.place_name)+'</div>'+(p.note?'<p class="note">'+esc(p.note)+'</p>':'')
   +'<div class="row"><span class="going">'+rs.length+' '+(party?"going":"joining")+(rs.length?": "+esc(rs.map(function(r){return(r.parents&&r.parents.display_name||"").split(" ")[0]}).join(", ")):"")+'</span><div>'
   +(host?'<button class="b sm del" data-a="delplan" data-p="'+esc(p.id)+'">Delete</button>':'<button class="b '+(mineR?"on":"go")+'" data-a="reply" data-p="'+esc(p.id)+'">'+label+'</button>')+'</div></div></article>'}).join("");
  $("app").innerHTML='<div class="head"><h1>Pop-by</h1><div><button class="b sm" data-a="profile">Profile</button> <button class="b sm" data-a="circles">Circles'+(pending.length?' ('+pending.length+')':'')+'</button></div></div><p class="sub">Hi '+esc(me.display_name)+'. No invites, no pressure. Just: we\'ll be here.</p>'
   +(ap.length?'<div class="chips">'+chips+'</div>':'')
+  +ap.filter(function(c){return c.circles.ends_on&&daysLeft(c.circles.ends_on)<=7&&(sel==="all"||sel===c.circle_id)}).map(function(c){return '<p class="hint">'+esc(cname(c.circle_id,c.circles.name))+': '+esc(endLabel(c.circles.ends_on).toLowerCase())+'. Its plans disappear after that.</p>'}).join("")
   +(cards||'<div class="empty">'+(ap.length?"Nothing planned yet.<br>Tap “Share a plan” to tell your circle where you’ll be.":"Create a circle, or join one with a code. A new member is approved by the organiser first.")+'</div>')
   +'<button class="fab" data-a="'+(ap.length?"newplan":"circles")+'">'+(ap.length?"+ Share a plan":"Set up a circle")+'</button>';
 }
@@ -183,8 +220,8 @@ async function act(b){
   var r2=await sb.from("children").insert(k.map(function(x){return{parent_id:uid,first_name:x}}));if(r2.error)throw r2.error;
   setSheet("");await load()}
  else if(a==="sel"){sel=b.dataset.c;draw()}
- else if(a==="circles")circlesSheet();
- else if(a==="profile")profileSheet();
+ else if(a==="circles"){joinInfo=null;circlesSheet()}
+ else if(a==="profile"){await loadContacts();profileSheet()}
  else if(a==="rmkid"){if(kids.length<2){E("pre","Keep at least one child. Add the new name first, then remove the old one.");return}
   if(!confirm("Remove this child? Plans already posted for them will stay, without a name."))return;
   var rk=await sb.from("children").delete().eq("id",b.dataset.k);if(rk.error)throw rk.error;await load();profileSheet()}
@@ -198,12 +235,34 @@ async function act(b){
   setSheet("");toast("Profile saved");await load()}
  else if(a==="newplan")planSheet();
  else if(a==="mkcircle"){var cn=v("cn");if(!cn){E("ce","Give your circle a name.");return}
-  var q=await sb.rpc("create_circle",{p_name:cn});if(q.error)throw q.error;await load();circlesSheet()}
- else if(a==="joincircle"){var cd=v("cj");if(!cd){E("ce","Enter the invite code.");return}
-  var j=await sb.rpc("join_circle",{p_code:cd});if(j.error){E("ce",j.error.message);return}
-  await load();circlesSheet("Request sent. The organiser has to approve you.")}
+  var q=await sb.rpc("create_circle",{p_name:cn,p_ends:v("ce2")||null});if(q.error){E("ce",q.error.message);return}await load();circlesSheet("Circle created. Share the code so people can ask to join.")}
+ else if(a==="lookup"){var cd=v("cj");if(!cd){E("ce","Enter the invite code.");return}
+  var lk=await sb.rpc("circle_preview",{p_code:cd});if(lk.error)throw lk.error;
+  if(!lk.data||!lk.data.length){E("ce","No circle with that code, or it has ended.");return}
+  joinInfo={code:cd,name:lk.data[0].name,ends_on:lk.data[0].ends_on,organiser:lk.data[0].organiser};circlesSheet()}
+ else if(a==="clearjoin"){joinInfo=null;circlesSheet()}
+ else if(a==="joincircle"){var j=await sb.rpc("join_circle",{p_code:joinInfo.code});if(j.error){E("ce",j.error.message);return}
+  var already=j.data==="member";joinInfo=null;await load();circlesSheet(already?"You are already in that circle.":"Request sent. The organiser has to approve you.")}
+ else if(a==="opencircle"){await loadRoster(b.dataset.c);circleSheet(b.dataset.c)}
+ else if(a==="rmmem"){var rn=(roster.find(function(r){return r.parent_id===b.dataset.p})||{}).display_name||"this person";
+  if(!confirm("Remove "+rn+"? They are not told. Their plans here are deleted, and they cannot rejoin unless you allow them back."))return;
+  var rm=await sb.rpc("remove_member",{p_circle:b.dataset.c,p_parent:b.dataset.p});if(rm.error)throw rm.error;await loadRoster(b.dataset.c);circleSheet(b.dataset.c,rn+" was removed.");load()}
+ else if(a==="allow"){var al=await sb.rpc("allow_member",{p_circle:b.dataset.c,p_parent:b.dataset.p});if(al.error)throw al.error;await loadRoster(b.dataset.c);circleSheet(b.dataset.c,"Allowed back.")}
+ else if(a==="mkorg"){var on=(roster.find(function(r){return r.parent_id===b.dataset.p})||{}).display_name||"this person";
+  if(!confirm("Make "+on+" an organiser? They will be able to approve and remove people."))return;
+  var mo=await sb.rpc("make_organiser",{p_circle:b.dataset.c,p_parent:b.dataset.p});if(mo.error)throw mo.error;await loadRoster(b.dataset.c);circleSheet(b.dataset.c,on+" is now an organiser.")}
+ else if(a==="saveend"){var se=await sb.rpc("set_circle_end",{p_circle:b.dataset.c,p_ends:v("ed")||null});if(se.error){E("ce3",se.error.message);return}
+  await load();await loadRoster(b.dataset.c);circleSheet(b.dataset.c,"End date saved.")}
+ else if(a==="savenick"){var nn=v("nn"),sn=nn?await sb.from("circle_nicknames").upsert({circle_id:b.dataset.c,parent_id:uid,nickname:nn}):await sb.from("circle_nicknames").delete().eq("circle_id",b.dataset.c).eq("parent_id",uid);
+  if(sn.error)throw sn.error;await load();circleSheet(b.dataset.c,nn?"Saved. Only you see this name.":"Back to the circle name.")}
+ else if(a==="hidetoggle"){var hp=b.dataset.p,isH=hiddenIds.indexOf(hp)>-1;
+  var hr=isH?await sb.from("hidden_from").delete().eq("owner_id",uid).eq("hidden_id",hp):await sb.from("hidden_from").insert({owner_id:uid,hidden_id:hp});
+  if(hr.error)throw hr.error;if(isH)hiddenIds=hiddenIds.filter(function(x){return x!==hp});else hiddenIds.push(hp);
+  b.textContent=isH?"Hide":"Hidden";b.className="b sm"+(isH?"":" on");toast(isH?"They can see your plans again.":"Hidden. They are not told.")}
  else if(a==="decide"){var d=await sb.rpc("decide_request",{p_circle:b.dataset.c,p_parent:b.dataset.p,p_approve:b.dataset.y==="1"});if(d.error)throw d.error;await load();circlesSheet()}
- else if(a==="leave"){if(!confirm("Leave this circle?"))return;var l=await sb.from("circle_members").delete().eq("circle_id",b.dataset.c).eq("parent_id",uid);if(l.error)throw l.error;if(sel===b.dataset.c)sel="all";await load();circlesSheet()}
+ else if(a==="leave"){if(!confirm("Leave this circle? Your plans in it will be deleted."))return;
+  var l=await sb.rpc("leave_circle",{p_circle:b.dataset.c});if(l.error){toast(l.error.message);return}
+  if(sel===b.dataset.c)sel="all";await load();circlesSheet()}
  else if(a==="sendplan"){var t=v("pt");if(!t){E("pe2","Add what the plan is.");return}
   var s=new Date(v("pd")+"T"+v("pf")),e=new Date(v("pd")+"T"+v("pe"));
   if(!(e>s)){E("pe2","The end time has to be after the start time.");return}

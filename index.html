@@ -66,8 +66,8 @@ input,select,textarea{width:100%;font:inherit;padding:12px;border-radius:12px;bo
 <script src="config.js"></script>
 <script>
 // Your Supabase URL and anon key now live in config.js (see README). The anon key is safe to publish; the database rules protect the data.
-var SUPABASE_URL=window.POPBY_URL||"https://ibojcsptkmwwdbnmgoam.supabase.co";
-var SUPABASE_ANON_KEY=window.POPBY_KEY||"sb_publishable_KnFNch4lX3z5CJ0mRVOXRQ_Ddjh34Eh";
+var SUPABASE_URL=window.POPBY_URL||"PASTE_YOUR_SUPABASE_URL";
+var SUPABASE_ANON_KEY=window.POPBY_KEY||"PASTE_YOUR_ANON_KEY";
 
 var $=function(i){return document.getElementById(i)};
 var esc=function(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
@@ -136,7 +136,7 @@ function planSheet(){
  var ap=approved();
  setSheet('<h2>Share a plan</h2><label for="pk">Type</label><select id="pk"><option value="dropin">Drop-in (no reply needed)</option><option value="party">Party (RSVP)</option></select>'
  +'<label for="pc">Which child?</label><select id="pc">'+kids.map(function(k){return '<option value="'+esc(k.id)+'">'+esc(k.first_name)+'</option>'}).join("")+'</select>'
- +'<label for="pt">What\'s the plan?</label><input id="pt" placeholder="Picnic in the park">'
+ +'<label for="pt">What\'s the plan?</label><input id="pt" placeholder="Playground at Costco Park">'
  +'<label for="pw">Where</label><input id="pw" placeholder="Meeting spot or address">'
  +'<div class="two"><div><label for="pf">From</label><input id="pf" type="time" value="10:00"></div><div><label for="pe">Until</label><input id="pe" type="time" value="12:00"></div></div>'
  +'<label for="pd">Day</label><input id="pd" type="date" value="'+todayStr()+'">'
@@ -155,7 +155,7 @@ function circlesSheet(msg){
  setSheet('<h2>Your circles</h2>'+(cards||'<p class="hint">You\'re not in a circle yet.</p>')
  +(pending.length?'<h2 style="font-size:18px;margin-top:16px">Waiting for your approval</h2><div class="card">'+pending.map(function(p){return '<div class="req"><div><b>'+esc(p.display_name)+'</b><div class="where">'+esc(p.circle_name)+'</div></div><div><button class="b sm on" data-a="decide" data-c="'+esc(p.circle_id)+'" data-p="'+esc(p.parent_id)+'" data-y="1">Approve</button> <button class="b sm" data-a="decide" data-c="'+esc(p.circle_id)+'" data-p="'+esc(p.parent_id)+'" data-y="0">Decline</button></div></div>'}).join("")+'</div>':'')
  +'<label for="cn">Start a new circle</label><input id="cn" placeholder="Class 2B">'
- +'<label for="ce2">Ends on (optional)</label><input id="ce2" type="date" min="'+todayStr()+'"><p class="hint">Everyone sees this date before they join. When it passes, the circle and its plans disappear for everyone, so you are not left with old circles. Leave empty for a circle that keeps going.</p>'
+ +'<label for="ce2">Ends on (optional)</label><input id="ce2" type="date" min="'+todayStr()+'"><div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"><button type="button" class="b sm" data-a="qd" data-t="ce2" data-n="7">+1 week</button><button type="button" class="b sm" data-a="qd" data-t="ce2" data-n="30">+1 month</button><button type="button" class="b sm" data-a="qd" data-t="ce2" data-n="90">+3 months</button><button type="button" class="b sm" data-a="qd" data-t="ce2" data-n="0">No end date</button></div><p class="hint">Tap the box to pick from a calendar, or use a quick button.</p><p class="hint">Everyone sees this date before they join. When it passes, the circle and its plans disappear for everyone, so you are not left with old circles. Leave empty for a circle that keeps going.</p>'
  +'<button class="big" data-a="mkcircle">Create circle</button>'
  +join+'<div class="err" id="ce">'+esc(msg||"")+'</div><button class="link" data-a="signout">Sign out</button><button class="link" data-a="close">Done</button>');
 }
@@ -166,7 +166,7 @@ function circleSheet(cid,msg){
  var act=roster.filter(function(r){return r.status==="approved"}),gone=roster.filter(function(r){return r.status==="removed"});
  setSheet('<h2>'+esc(cname(cid,ci.name))+'</h2>'+(nicks[cid]?'<p class="hint">Circle name: '+esc(ci.name)+'</p>':'')
  +'<div class="card"><b>'+esc(endLabel(ci.ends_on))+'</b><div class="where">'+(ci.ends_on?esc(longDate(ci.ends_on))+'. After this date the circle and its plans disappear for everyone.':'This circle has no end date.')+'</div>'
- +(org?'<label for="ed">Change end date</label><input id="ed" type="date" min="'+todayStr()+'" value="'+esc(ci.ends_on||"")+'"><p class="hint">Leave empty for no end date. Everyone sees the new date.</p><button class="b sm on" data-a="saveend" data-c="'+esc(cid)+'">Save date</button>':'')+'</div>'
+ +(org?'<label for="ed">Change end date</label><input id="ed" type="date" min="'+todayStr()+'" value="'+esc(ci.ends_on||"")+'"><div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="7">+1 week</button><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="30">+1 month</button><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="90">+3 months</button><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="0">No end date</button></div><p class="hint">Leave empty for no end date. Everyone sees the new date.</p><button class="b sm on" data-a="saveend" data-c="'+esc(cid)+'">Save date</button>':'')+'</div>'
  +'<p class="hint">Invite code</p><div class="code">'+esc(ci.invite_code)+'</div>'
  +'<h2 style="font-size:18px;margin-top:16px">Members ('+act.length+')</h2><div class="card">'+act.map(function(r){
    return '<div class="req"><div><b>'+esc(r.display_name)+(r.parent_id===uid?' (you)':'')+'</b><div class="where">'+(r.role==="organiser"?"Organiser":"Member")+'</div></div>'
@@ -236,6 +236,7 @@ async function act(b){
  else if(a==="newplan")planSheet();
  else if(a==="mkcircle"){var cn=v("cn");if(!cn){E("ce","Give your circle a name.");return}
   var q=await sb.rpc("create_circle",{p_name:cn,p_ends:v("ce2")||null});if(q.error){E("ce",q.error.message);return}await load();circlesSheet("Circle created. Share the code so people can ask to join.")}
+ else if(a==="qd"){var el=$(b.dataset.t),n=+b.dataset.n;if(!n)el.value="";else{var d=new Date();d.setDate(d.getDate()+n);el.value=d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}}
  else if(a==="lookup"){var cd=v("cj");if(!cd){E("ce","Enter the invite code.");return}
   var lk=await sb.rpc("circle_preview",{p_code:cd});if(lk.error)throw lk.error;
   if(!lk.data||!lk.data.length){E("ce","No circle with that code, or it has ended.");return}

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1B2B3C">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pop-by">
+<title>Pop-by</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#EAF2F7;--card:#fff;--ink:#1B2B3C;--mute:#5B6B7B;--line:#D5E1EA;--sun:#FFC83D;--leaf:#1F8A5F;--leafbg:#DDF3E9;--coral:#E4584A;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root{--bg:#101A24;--card:#1A2735;--ink:#EEF4F8;--mute:#9AABBB;--line:#2A3B4C;--leafbg:#17382B}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Bricolage Grotesque',system-ui,-apple-system,sans-serif;font-size:16px;line-height:1.4}
+.app{max-width:480px;margin:0 auto;min-height:100vh;padding:16px 16px 110px}
+.head{display:flex;justify-content:space-between;align-items:center}
+h1{font-size:30px;font-weight:800;margin:4px 0;letter-spacing:-.02em;line-height:1.1}
+.sub{color:var(--mute);margin:0 0 14px;font-size:14px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px}
+.chip{flex:none;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 14px;font:inherit;font-weight:600;font-size:14px;cursor:pointer}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;margin-bottom:12px}
+.card.party{border-left:8px solid var(--sun)}.card.now{border-left:8px solid var(--leaf)}.card.old{opacity:.55}
+.top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.who{font-size:13px;color:var(--mute);font-weight:600}
+.title{font-size:20px;font-weight:800;margin:2px 0 6px;line-height:1.15}
+.when{font-weight:600}.where{color:var(--mute);font-size:14px}
+.tag{font-size:12px;font-weight:700;border-radius:8px;padding:3px 8px;background:var(--leafbg);color:var(--leaf);white-space:nowrap}
+.tag.p{background:#FFF0C2;color:#7A5600}
+.note{margin:10px 0 0;font-size:15px}
+.row{display:flex;align-items:center;justify-content:space-between;margin-top:14px;gap:8px}
+.going{font-size:13px;color:var(--mute)}
+.b{font:inherit;font-weight:700;border-radius:12px;padding:10px 14px;border:2px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer}
+.b.go{background:var(--sun);border-color:var(--sun);color:#1B2B3C}.b.on{background:var(--leaf);border-color:var(--leaf);color:#fff}
+.b.sm{padding:6px 10px;font-size:13px}.b.del{border-color:var(--coral);color:var(--coral)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+.fab{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--sun);color:#1B2B3C;border:0;border-radius:999px;padding:16px 26px;font:inherit;font-weight:800;font-size:17px;box-shadow:0 6px 18px rgba(0,0,0,.25);cursor:pointer}
+.scrim{position:fixed;inset:0;background:rgba(10,20,30,.55);display:none;align-items:flex-end;justify-content:center;z-index:5}
+.scrim.open{display:flex}
+.sheet{background:var(--card);width:100%;max-width:480px;max-height:92vh;overflow:auto;border-radius:24px 24px 0 0;padding:20px 18px calc(24px + env(safe-area-inset-bottom,0px))}
+.sheet h2{margin:0 0 8px;font-size:24px;font-weight:800}
+label{display:block;font-weight:600;font-size:14px;margin:12px 0 4px}
+input,select,textarea{width:100%;font:inherit;padding:12px;border-radius:12px;border:2px solid var(--line);background:var(--bg);color:var(--ink)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hint{font-size:13px;color:var(--mute);margin:6px 0 0}
+.big{width:100%;margin-top:16px;padding:15px;font:inherit;font-size:17px;font-weight:800;border-radius:14px;border:0;background:var(--ink);color:var(--bg);cursor:pointer}
+.link{width:100%;background:none;border:0;color:var(--mute);font:inherit;font-weight:600;padding:10px;cursor:pointer}
+.toast{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%) translateY(-140px);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:14px;font-weight:600;transition:transform .25s;z-index:9;max-width:92%}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.empty{text-align:center;color:var(--mute);padding:36px 10px}
+.code{font-size:30px;font-weight:800;letter-spacing:.15em}
+.err{color:var(--coral);font-size:14px;font-weight:600;min-height:20px;margin-top:6px}
+.req{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+<div class="app" id="app"><p class="sub">Loading…</p></div>
+<div class="scrim" id="scrim"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast" role="status"></div>
+<script>
+// 1. Paste your Supabase project values here (Project Settings > API). The anon key is safe to publish; the database rules protect the data.
+var SUPABASE_URL="PASTE_YOUR_SUPABASE_URL";
+var SUPABASE_ANON_KEY="PASTE_YOUR_ANON_KEY";
+
+var $=function(i){return document.getElementById(i)};
+var esc=function(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
+var pad=function(n){return(n<10?"0":"")+n};
+var tm=function(d){return d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})};
+function toast(m){var t=$("toast");t.textContent=m;t.className="toast show";clearTimeout(toast.h);toast.h=setTimeout(function(){t.className="toast"},3800)}
+function setSheet(h){$("sheet").innerHTML=h||"";$("scrim").className="scrim"+(h?" open":"")}
+function todayStr(){var d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
+function dayLabel(d){return d.toDateString()===new Date().toDateString()?"Today":d.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})}
+
+var sb,uid=null,me=null,kids=[],circles=[],plans=[],replies=[],pending=[],sel="all",subscribed=false,toastFor=null,timer=null;
+$("scrim").onclick=function(e){if(e.target===$("scrim")&&me)setSheet("")};
+
+if(SUPABASE_URL.indexOf("PASTE")===0){$("app").innerHTML='<h1>Pop-by</h1><p class="sub">Add your Supabase URL and anon key at the top of index.html (see README).</p>'}
+else{
+ sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+ sb.auth.onAuthStateChange(function(_e,s){
+  if(!s){uid=null;me=null;authView();return}
+  if(s.user.id!==uid){uid=s.user.id;setTimeout(start,0)}
+ });
+}
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(function(){});
+
+function authView(mode){
+ mode=mode||"in";setSheet("");
+ $("app").innerHTML='<h1>Pop-by</h1><p class="sub">Parents only. No invites, no pressure. Just: we\'ll be here.</p><div class="card"><label for="em">Email</label><input id="em" type="email" autocomplete="email"><label for="pw">Password</label><input id="pw" type="password" autocomplete="'+(mode==="in"?"current-password":"new-password")+'" minlength="6"><div class="err" id="ae"></div><button class="big" data-a="'+(mode==="in"?"signin":"signup")+'">'+(mode==="in"?"Sign in":"Create account")+'</button><button class="link" data-a="authmode" data-m="'+(mode==="in"?"up":"in")+'">'+(mode==="in"?"New here? Create an account":"I already have an account")+'</button></div>';
+}
+async function start(){
+ await load();
+ if(!me)setupSheet();
+ if(!subscribed){subscribed=true;
+  sb.channel("pop").on("postgres_changes",{event:"*",schema:"public"},function(p){
+   if(p.table==="plans"&&p.eventType==="INSERT"&&p.new.host_id!==uid)toastFor=p.new.id;
+   clearTimeout(timer);timer=setTimeout(load,400)}).subscribe();
+ }
+}
+async function load(){
+ var start=new Date();start.setHours(0,0,0,0);
+ var r=await Promise.all([
+  sb.from("parents").select("*").eq("id",uid).maybeSingle(),
+  sb.from("children").select("*").eq("parent_id",uid),
+  sb.from("circle_members").select("circle_id,role,status,circles(name,invite_code)").eq("parent_id",uid),
+  sb.from("plans").select("*,host:parents(display_name),child:children(first_name),circle:circles(name)").gte("ends_at",start.toISOString()).order("starts_at"),
+  sb.from("plan_replies").select("plan_id,parent_id,parents(display_name)"),
+  sb.rpc("pending_requests")]);
+ var bad=r.find(function(x){return x.error});if(bad){toast("Couldn't load: "+bad.error.message)}
+ me=r[0].data;kids=r[1].data||[];circles=r[2].data||[];plans=r[3].data||[];replies=r[4].data||[];pending=r[5].data||[];
+ if(toastFor){var p=plans.find(function(x){return x.id===toastFor});if(p)toast("New: "+(p.host&&p.host.display_name)+" · "+p.title+", "+tm(new Date(p.starts_at))+"–"+tm(new Date(p.ends_at)));toastFor=null}
+ draw();
+}
+function approved(){return circles.filter(function(c){return c.status==="approved"})}
+function setupSheet(){
+ setSheet('<h2>Welcome to Pop-by</h2><p class="hint">Only parents in circles you join will see this.</p><label for="sn">Your first name and last initial</label><input id="sn" placeholder="Priya S."><label for="sk">Your children\'s first names (comma separated)</label><input id="sk" placeholder="Aarav, Mia"><div class="err" id="se"></div><button class="big" data-a="saveme">Continue</button>');
+}
+function planSheet(){
+ var ap=approved();
+ setSheet('<h2>Share a plan</h2><label for="pk">Type</label><select id="pk"><option value="dropin">Drop-in (no reply needed)</option><option value="party">Party (RSVP)</option></select>'
+ +'<label for="pc">Which child?</label><select id="pc">'+kids.map(function(k){return '<option value="'+esc(k.id)+'">'+esc(k.first_name)+'</option>'}).join("")+'</select>'
+ +'<label for="pt">What\'s the plan?</label><input id="pt" placeholder="Playground at Costco Park">'
+ +'<label for="pw">Where</label><input id="pw" placeholder="Meeting spot or address">'
+ +'<div class="two"><div><label for="pf">From</label><input id="pf" type="time" value="10:00"></div><div><label for="pe">Until</label><input id="pe" type="time" value="12:00"></div></div>'
+ +'<label for="pd">Day</label><input id="pd" type="date" value="'+todayStr()+'">'
+ +'<label for="pg">Share with</label><select id="pg">'+ap.map(function(c){return '<option value="'+esc(c.circle_id)+'">'+esc(c.circles.name)+'</option>'}).join("")+'</select>'
+ +'<label for="pn">Note (optional)</label><textarea id="pn" rows="2" placeholder="Come if you\'re free!"></textarea><div class="err" id="pe2"></div>'
+ +'<button class="big" data-a="sendplan">Send to circle</button><button class="link" data-a="close">Cancel</button>');
+}
+function circlesSheet(msg){
+ setSheet('<h2>Your circles</h2>'+(circles.length?circles.map(function(c){var ok=c.status==="approved";
+  return '<div class="card"><div class="top"><div><b>'+esc(ok?c.circles.name:"Waiting for approval")+'</b><div class="where">'+(ok?(c.role==="organiser"?"You organise this circle":"Member"):"The organiser has to approve you first")+'</div></div><button class="b sm del" data-a="leave" data-c="'+esc(c.circle_id)+'">Leave</button></div>'+(ok?'<p class="hint">Invite code</p><div class="code">'+esc(c.circles.invite_code)+'</div>':'')+'</div>'}).join(""):'<p class="hint">You\'re not in a circle yet.</p>')
+ +(pending.length?'<h2 style="font-size:18px;margin-top:16px">Waiting for your approval</h2><div class="card">'+pending.map(function(p){return '<div class="req"><div><b>'+esc(p.display_name)+'</b><div class="where">'+esc(p.circle_name)+'</div></div><div><button class="b sm on" data-a="decide" data-c="'+esc(p.circle_id)+'" data-p="'+esc(p.parent_id)+'" data-y="1">Approve</button> <button class="b sm" data-a="decide" data-c="'+esc(p.circle_id)+'" data-p="'+esc(p.parent_id)+'" data-y="0">Decline</button></div></div>'}).join("")+'</div>':'')
+ +'<label for="cn">Start a new circle</label><input id="cn" placeholder="Class 2B"><button class="big" data-a="mkcircle">Create circle</button>'
+ +'<label for="cj">Or join with a code</label><input id="cj" maxlength="6" placeholder="ABC123" style="text-transform:uppercase"><button class="big" data-a="joincircle">Request to join</button><div class="err" id="ce">'+esc(msg||"")+'</div><button class="link" data-a="signout">Sign out</button><button class="link" data-a="close">Done</button>');
+}
+function draw(){
+ if(!me)return;
+ var ap=approved(),ids=ap.map(function(c){return c.circle_id}),now=new Date();
+ var chips='<button class="chip" data-a="sel" data-c="all" aria-pressed="'+(sel==="all")+'">All circles</button>'+ap.map(function(c){return '<button class="chip" data-a="sel" data-c="'+esc(c.circle_id)+'" aria-pressed="'+(sel===c.circle_id)+'">'+esc(c.circles.name)+'</button>'}).join("");
+ var list=plans.filter(function(p){return ids.indexOf(p.circle_id)>-1&&(sel==="all"||p.circle_id===sel)});
+ var cards=list.map(function(p){
+  var party=p.kind==="party",s=new Date(p.starts_at),e=new Date(p.ends_at);
+  var rs=replies.filter(function(r){return r.plan_id===p.id}),mineR=rs.some(function(r){return r.parent_id===uid});
+  var isNow=s<=now&&now<=e,ended=e<now,host=p.host_id===uid;
+  var label=party?(mineR?"You're going":"I'm going"):(mineR?"You're joining":"I might pop by");
+  return '<article class="card '+(party?"party":isNow?"now":"")+(ended?" old":"")+'"><div class="top"><div><div class="who">'+esc(p.host&&p.host.display_name)+' · '+esc(p.circle&&p.circle.name)+'</div><div class="title">'+esc(p.title)+'</div></div><span class="tag '+(party?"p":"")+'">'+(ended?"Ended":party?"RSVP":isNow?"Happening now":"Drop-in")+'</span></div>'
+  +'<div class="when">'+esc(dayLabel(s))+', '+tm(s)+'–'+tm(e)+(p.child?' · '+esc(p.child.first_name):'')+'</div><div class="where">'+esc(p.place_name)+'</div>'+(p.note?'<p class="note">'+esc(p.note)+'</p>':'')
+  +'<div class="row"><span class="going">'+rs.length+' '+(party?"going":"joining")+(rs.length?": "+esc(rs.map(function(r){return(r.parents&&r.parents.display_name||"").split(" ")[0]}).join(", ")):"")+'</span><div>'
+  +(host?'<button class="b sm del" data-a="delplan" data-p="'+esc(p.id)+'">Delete</button>':'<button class="b '+(mineR?"on":"go")+'" data-a="reply" data-p="'+esc(p.id)+'">'+label+'</button>')+'</div></div></article>'}).join("");
+ $("app").innerHTML='<div class="head"><h1>Pop-by</h1><button class="b sm" data-a="circles">Circles'+(pending.length?' ('+pending.length+')':'')+'</button></div><p class="sub">Hi '+esc(me.display_name)+'. No invites, no pressure. Just: we\'ll be here.</p>'
+  +(ap.length?'<div class="chips">'+chips+'</div>':'')
+  +(cards||'<div class="empty">'+(ap.length?"Nothing planned yet.<br>Tap “Share a plan” to tell your circle where you’ll be.":"Create a circle, or join one with a code. A new member is approved by the organiser first.")+'</div>')
+  +'<button class="fab" data-a="'+(ap.length?"newplan":"circles")+'">'+(ap.length?"+ Share a plan":"Set up a circle")+'</button>';
+}
+async function act(b){
+ var a=b.dataset.a,v=function(i){return $(i)&&$(i).value.trim()},E=function(id,m){if($(id))$(id).textContent=m};
+ try{
+ if(a==="close")setSheet("");
+ else if(a==="authmode")authView(b.dataset.m);
+ else if(a==="signin"||a==="signup"){
+  var em=v("em"),pw=v("pw");if(!em||pw.length<6){E("ae","Enter your email and a password of at least 6 characters.");return}
+  var r=a==="signin"?await sb.auth.signInWithPassword({email:em,password:pw}):await sb.auth.signUp({email:em,password:pw});
+  if(r.error)E("ae",r.error.message);else if(a==="signup"&&!r.data.session)E("ae","Check your email to confirm, then sign in.")}
+ else if(a==="signout"){await sb.auth.signOut();subscribed=false;sb.removeAllChannels()}
+ else if(a==="saveme"){var n=v("sn"),k=v("sk").split(",").map(function(x){return x.trim()}).filter(Boolean);
+  if(!n||!k.length){E("se","Enter your name and at least one child.");return}
+  var r1=await sb.from("parents").upsert({id:uid,display_name:n});if(r1.error)throw r1.error;
+  var r2=await sb.from("children").insert(k.map(function(x){return{parent_id:uid,first_name:x}}));if(r2.error)throw r2.error;
+  setSheet("");await load()}
+ else if(a==="sel"){sel=b.dataset.c;draw()}
+ else if(a==="circles")circlesSheet();
+ else if(a==="newplan")planSheet();
+ else if(a==="mkcircle"){var cn=v("cn");if(!cn){E("ce","Give your circle a name.");return}
+  var q=await sb.rpc("create_circle",{p_name:cn});if(q.error)throw q.error;await load();circlesSheet()}
+ else if(a==="joincircle"){var cd=v("cj");if(!cd){E("ce","Enter the invite code.");return}
+  var j=await sb.rpc("join_circle",{p_code:cd});if(j.error){E("ce",j.error.message);return}
+  await load();circlesSheet("Request sent. The organiser has to approve you.")}
+ else if(a==="decide"){var d=await sb.rpc("decide_request",{p_circle:b.dataset.c,p_parent:b.dataset.p,p_approve:b.dataset.y==="1"});if(d.error)throw d.error;await load();circlesSheet()}
+ else if(a==="leave"){if(!confirm("Leave this circle?"))return;var l=await sb.from("circle_members").delete().eq("circle_id",b.dataset.c).eq("parent_id",uid);if(l.error)throw l.error;if(sel===b.dataset.c)sel="all";await load();circlesSheet()}
+ else if(a==="sendplan"){var t=v("pt");if(!t){E("pe2","Add what the plan is.");return}
+  var s=new Date(v("pd")+"T"+v("pf")),e=new Date(v("pd")+"T"+v("pe"));
+  if(!(e>s)){E("pe2","The end time has to be after the start time.");return}
+  var ins=await sb.from("plans").insert({circle_id:v("pg"),host_id:uid,child_id:v("pc"),kind:v("pk"),title:t,place_name:v("pw")||"Location to be shared",starts_at:s.toISOString(),ends_at:e.toISOString(),note:v("pn")||null});
+  if(ins.error)throw ins.error;setSheet("");toast("Sent. Your circle has been notified.");await load()}
+ else if(a==="reply"){var pid=b.dataset.p,has=replies.some(function(x){return x.plan_id===pid&&x.parent_id===uid});
+  var rr=has?await sb.from("plan_replies").delete().eq("plan_id",pid).eq("parent_id",uid):await sb.from("plan_replies").insert({plan_id:pid,parent_id:uid,status:"going"});
+  if(rr.error)throw rr.error;toast(has?"Removed your reply":"They know you're coming");await load()}
+ else if(a==="delplan"){if(confirm("Delete this plan for everyone?")){var dp=await sb.from("plans").delete().eq("id",b.dataset.p);if(dp.error)throw dp.error;await load()}}
+ }catch(e){toast("That didn't save: "+(e.message||"error"))}
+}
+document.addEventListener("click",function(e){var b=e.target.closest("[data-a]");if(b)act(b)});
+</script>
+</body>
+</html>

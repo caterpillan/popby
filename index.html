@@ -95,9 +95,10 @@ function parseTime(t){t=(t||"").toLowerCase().replace(/\./g,"").trim();var m=t.m
  if(ap){if(h<1||h>12)return null;if(ap[0]==="p"&&h<12)h+=12;if(ap[0]==="a"&&h===12)h=0}else if(h>23)return null;
  return pad(h)+":"+pad(mi)}
 function todayStr(){var d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
+function ago(ts){var m=Math.round((Date.now()-new Date(ts))/60000);if(m<2)return "just now";if(m<60)return m+" min ago";var h=Math.round(m/60);if(h<24)return h+" h ago";return "on "+new Date(ts).toLocaleDateString(undefined,{day:"numeric",month:"short"})}
 function dayLabel(d){return d.toDateString()===new Date().toDateString()?"Today":d.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})}
 
-var sb,uid=null,me=null,kids=[],circles=[],plans=[],replies=[],pending=[],sel="all",subscribed=false,toastFor=null,timer=null;
+var sb,uid=null,me=null,kids=[],circles=[],plans=[],replies=[],pending=[],sel="all",subscribed=false,toastFor=null,toastKind="New",timer=null;
 var nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null;
 function daysLeft(ds){var e=new Date(ds+"T00:00:00"),t=new Date();t.setHours(0,0,0,0);return Math.round((e-t)/864e5)}
 function longDate(ds){return new Date(ds+"T00:00:00").toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short",year:"numeric"})}
@@ -125,6 +126,7 @@ async function start(){
  if(!subscribed){subscribed=true;
   sb.channel("pop").on("postgres_changes",{event:"*",schema:"public"},function(p){
    if(p.table==="plans"&&p.eventType==="INSERT"&&p.new.host_id!==uid)toastFor=p.new.id;
+   if(p.table==="plans"&&p.eventType==="UPDATE"&&p.new.host_id!==uid&&p.new.edited_at&&Date.now()-new Date(p.new.edited_at)<20000){toastFor=p.new.id;toastKind="Updated"}
    clearTimeout(timer);timer=setTimeout(load,400)}).subscribe();
  }
 }
@@ -142,7 +144,7 @@ async function load(){
  me=r[0].data;kids=r[1].data||[];circles=r[2].data||[];plans=r[3].data||[];replies=r[4].data||[];pending=r[5].data||[];
  nicks={};(r[6].data||[]).forEach(function(n){nicks[n.circle_id]=n.nickname});
  if(sel!=="all"&&!approved().some(function(c){return c.circle_id===sel}))sel="all";
- if(toastFor){var p=plans.find(function(x){return x.id===toastFor});if(p)toast("New: "+(p.host&&p.host.display_name)+" · "+p.title+", "+tm(new Date(p.starts_at))+"–"+tm(new Date(p.ends_at)));toastFor=null}
+ if(toastFor){var p=plans.find(function(x){return x.id===toastFor});if(p)toast(toastKind+": "+(p.host&&p.host.display_name)+" · "+p.title+", "+tm(new Date(p.starts_at))+"–"+tm(new Date(p.ends_at)));toastFor=null;toastKind="New"}
  draw();
 }
 function approved(){return circles.filter(function(c){return c.status==="approved"&&c.circles&&!(c.circles.ends_on&&daysLeft(c.circles.ends_on)<0)})}
@@ -203,6 +205,20 @@ function profileSheet(msg){
  +'<label for="nk">Add a child</label><input id="nk" placeholder="First name">'
  +'<div class="err" id="pre">'+esc(msg||"")+'</div><button class="big" data-a="saveprofile">Save changes</button>'+hideList+'<button class="link" data-a="close">Close</button>');
 }
+function editSheet(pid){
+ var p=plans.find(function(x){return x.id===pid});if(!p)return;
+ var s=new Date(p.starts_at),e=new Date(p.ends_at);
+ var t12=function(d){var h=d.getHours(),m=d.getMinutes();return (h%12||12)+(m?":"+pad(m):":00")+(h<12?" am":" pm")};
+ var iso=s.getFullYear()+"-"+pad(s.getMonth()+1)+"-"+pad(s.getDate());
+ setSheet('<h2>Edit plan</h2><p class="hint">Everyone in the circle sees an Updated badge and gets a notice.</p>'
+ +'<label for="et">What\'s the plan?</label><input id="et" value="'+esc(p.title)+'">'
+ +'<label for="ew">Where</label><input id="ew" value="'+esc(p.place_name)+'">'
+ +'<div class="two"><div><label for="ef">From</label><input id="ef" type="text" autocomplete="off" value="'+t12(s)+'"></div><div><label for="ee">Until</label><input id="ee" type="text" autocomplete="off" value="'+t12(e)+'"></div></div>'
+ +'<label for="ed2">Day</label><input id="ed2" type="text" autocomplete="off" placeholder="e.g. 12 Oct, 12/10 or tomorrow" value="'+fmtDate(iso)+'">'
+ +'<button type="button" class="b sm" data-a="cal" data-t="ed2" style="margin-top:6px">Calendar</button><input type="date" id="ed2_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none">'
+ +'<label for="en">Note (optional)</label><textarea id="en" rows="2">'+esc(p.note||"")+'</textarea><div class="err" id="ee2"></div>'
+ +'<button class="big" data-a="saveplan" data-p="'+esc(pid)+'">Save and notify</button><button class="link" data-a="close">Cancel</button>');
+}
 function draw(){
  if(!me)return;
  var ap=approved(),ids=ap.map(function(c){return c.circle_id}),now=new Date();
@@ -213,10 +229,10 @@ function draw(){
   var rs=replies.filter(function(r){return r.plan_id===p.id}),mineR=rs.some(function(r){return r.parent_id===uid});
   var isNow=s<=now&&now<=e,ended=e<now,host=p.host_id===uid;
   var label=party?(mineR?"You're going":"I'm going"):(mineR?"You're joining":"I might pop by");
-  return '<article class="card '+(party?"party":isNow?"now":"")+(ended?" old":"")+'"><div class="top"><div><div class="who">'+esc(p.host&&p.host.display_name)+' · '+esc(cname(p.circle_id,p.circle&&p.circle.name))+'</div><div class="title">'+esc(p.title)+'</div></div><span class="tag '+(party?"p":"")+'">'+(ended?"Ended":party?"RSVP":isNow?"Happening now":"Drop-in")+'</span></div>'
+  return '<article class="card '+(party?"party":isNow?"now":"")+(ended?" old":"")+'"><div class="top"><div><div class="who">'+esc(p.host&&p.host.display_name)+' · '+esc(cname(p.circle_id,p.circle&&p.circle.name))+'</div><div class="title">'+esc(p.title)+'</div></div><span class="tag '+(party?"p":"")+'">'+(ended?"Ended":party?"RSVP":isNow?"Happening now":"Drop-in")+'</span></div>'+(p.edited_at&&!ended?'<div class="where" style="color:var(--coral);font-weight:700">Updated '+esc(ago(p.edited_at))+'</div>':'')
   +'<div class="when">'+esc(dayLabel(s))+', '+tm(s)+'–'+tm(e)+(p.child?' · '+esc(p.child.first_name):'')+'</div><div class="where">'+esc(p.place_name)+'</div>'+(p.note?'<p class="note">'+esc(p.note)+'</p>':'')
   +'<div class="row"><span class="going">'+rs.length+' '+(party?"going":"joining")+(rs.length?": "+esc(rs.map(function(r){return(r.parents&&r.parents.display_name||"").split(" ")[0]}).join(", ")):"")+'</span><div>'
-  +(host?'<button class="b sm del" data-a="delplan" data-p="'+esc(p.id)+'">Delete</button>':'<button class="b '+(mineR?"on":"go")+'" data-a="reply" data-p="'+esc(p.id)+'">'+label+'</button>')+'</div></div></article>'}).join("");
+  +(host?'<button class="b sm" data-a="editplan" data-p="'+esc(p.id)+'">Edit</button> <button class="b sm del" data-a="delplan" data-p="'+esc(p.id)+'">Delete</button>':'<button class="b '+(mineR?"on":"go")+'" data-a="reply" data-p="'+esc(p.id)+'">'+label+'</button>')+'</div></div></article>'}).join("");
  $("app").innerHTML='<div class="head"><h1>Pop-by</h1><div><button class="b sm" data-a="profile">Profile</button> <button class="b sm" data-a="circles">Circles'+(pending.length?' ('+pending.length+')':'')+'</button></div></div><p class="sub">Hi '+esc(me.display_name)+'. No invites, no pressure. Just: we\'ll be here.</p>'
   +(ap.length?'<div class="chips">'+chips+'</div>':'')
   +ap.filter(function(c){return c.circles.ends_on&&daysLeft(c.circles.ends_on)<=7&&(sel==="all"||sel===c.circle_id)}).map(function(c){return '<p class="hint">'+esc(cname(c.circle_id,c.circles.name))+': '+esc(endLabel(c.circles.ends_on).toLowerCase())+'. Its plans disappear after that.</p>'}).join("")
@@ -296,6 +312,13 @@ async function act(b){
  else if(a==="reply"){var pid=b.dataset.p,has=replies.some(function(x){return x.plan_id===pid&&x.parent_id===uid});
   var rr=has?await sb.from("plan_replies").delete().eq("plan_id",pid).eq("parent_id",uid):await sb.from("plan_replies").insert({plan_id:pid,parent_id:uid,status:"going"});
   if(rr.error)throw rr.error;toast(has?"Removed your reply":"They know you're coming");await load()}
+ else if(a==="editplan"){editSheet(b.dataset.p)}
+ else if(a==="saveplan"){var et=v("et");if(!et){E("ee2","Add what the plan is.");return}
+  var f2=parseTime(v("ef")),u2=parseTime(v("ee"));if(!f2||!u2){E("ee2","Type times like 10am or 2:30pm.");return}
+  var d2=parseDate(v("ed2"));if(!d2){E("ee2","Type the day like 12 Oct, 12/10 or tomorrow.");return}
+  var s2=new Date(d2+"T"+f2),e2=new Date(d2+"T"+u2);if(!(e2>s2)){E("ee2","The end time has to be after the start time.");return}
+  var up=await sb.from("plans").update({title:et,place_name:v("ew")||"Location to be shared",starts_at:s2.toISOString(),ends_at:e2.toISOString(),note:v("en")||null}).eq("id",b.dataset.p);
+  if(up.error)throw up.error;setSheet("");toast("Saved. Your circle has been notified.");await load()}
  else if(a==="delplan"){if(confirm("Delete this plan for everyone?")){var dp=await sb.from("plans").delete().eq("id",b.dataset.p);if(dp.error)throw dp.error;await load()}}
  }catch(e){toast("That didn't save: "+(e.message||"error"))}
 }

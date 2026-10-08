@@ -221,3 +221,10 @@ grant execute on function create_circle(text), join_circle(text), pending_reques
 
 -- Live updates in the app
 alter publication supabase_realtime add table plans, plan_replies, circle_members;
+
+-- Let signed-in users reach the tables. Row-level security (above) still decides which rows.
+-- Without these grants Supabase reports "permission denied for table ...".
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on all tables in schema public to authenticated;
+grant usage, select on all sequences in schema public to authenticated;
+alter default privileges in schema public grant select, insert, update, delete on tables to authenticated;

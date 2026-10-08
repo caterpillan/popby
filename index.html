@@ -125,7 +125,7 @@ function planSheet(){
  var ap=approved();
  setSheet('<h2>Share a plan</h2><label for="pk">Type</label><select id="pk"><option value="dropin">Drop-in (no reply needed)</option><option value="party">Party (RSVP)</option></select>'
  +'<label for="pc">Which child?</label><select id="pc">'+kids.map(function(k){return '<option value="'+esc(k.id)+'">'+esc(k.first_name)+'</option>'}).join("")+'</select>'
- +'<label for="pt">What\'s the plan?</label><input id="pt" placeholder="Playground at Costco Park">'
+ +'<label for="pt">What\'s the plan?</label><input id="pt" placeholder="Our local playground">'
  +'<label for="pw">Where</label><input id="pw" placeholder="Meeting spot or address">'
  +'<div class="two"><div><label for="pf">From</label><input id="pf" type="time" value="10:00"></div><div><label for="pe">Until</label><input id="pe" type="time" value="12:00"></div></div>'
  +'<label for="pd">Day</label><input id="pd" type="date" value="'+todayStr()+'">'

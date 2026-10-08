@@ -63,10 +63,11 @@ input,select,textarea{width:100%;font:inherit;padding:12px;border-radius:12px;bo
 <div class="app" id="app"><p class="sub">Loading…</p></div>
 <div class="scrim" id="scrim"><div class="sheet" id="sheet"></div></div>
 <div class="toast" id="toast" role="status"></div>
+<script src="config.js"></script>
 <script>
-// 1. Paste your Supabase project values here (Project Settings > API). The anon key is safe to publish; the database rules protect the data.
-var SUPABASE_URL="https://ibojcsptkmwwdbnmgoam.supabase.co";
-var SUPABASE_ANON_KEY="sb_publishable_KnFNch4lX3z5CJ0mRVOXRQ_Ddjh34Eh";
+// Your Supabase URL and anon key now live in config.js (see README). The anon key is safe to publish; the database rules protect the data.
+var SUPABASE_URL=window.POPBY_URL||"PASTE_YOUR_SUPABASE_URL";
+var SUPABASE_ANON_KEY=window.POPBY_KEY||"PASTE_YOUR_ANON_KEY";
 
 var $=function(i){return document.getElementById(i)};
 var esc=function(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
@@ -80,7 +81,7 @@ function dayLabel(d){return d.toDateString()===new Date().toDateString()?"Today"
 var sb,uid=null,me=null,kids=[],circles=[],plans=[],replies=[],pending=[],sel="all",subscribed=false,toastFor=null,timer=null;
 $("scrim").onclick=function(e){if(e.target===$("scrim")&&me)setSheet("")};
 
-if(SUPABASE_URL.indexOf("PASTE")===0){$("app").innerHTML='<h1>Pop-by</h1><p class="sub">Add your Supabase URL and anon key at the top of index.html (see README).</p>'}
+if(SUPABASE_URL.indexOf("PASTE")===0){$("app").innerHTML='<h1>Pop-by</h1><p class="sub">Create config.js with your Supabase URL and anon key (see README).</p>'}
 else{
  sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
  sb.auth.onAuthStateChange(function(_e,s){
@@ -125,7 +126,7 @@ function planSheet(){
  var ap=approved();
  setSheet('<h2>Share a plan</h2><label for="pk">Type</label><select id="pk"><option value="dropin">Drop-in (no reply needed)</option><option value="party">Party (RSVP)</option></select>'
  +'<label for="pc">Which child?</label><select id="pc">'+kids.map(function(k){return '<option value="'+esc(k.id)+'">'+esc(k.first_name)+'</option>'}).join("")+'</select>'
- +'<label for="pt">What\'s the plan?</label><input id="pt" placeholder="Our local playground">'
+ +'<label for="pt">What\'s the plan?</label><input id="pt" placeholder="Playground at Costco Park">'
  +'<label for="pw">Where</label><input id="pw" placeholder="Meeting spot or address">'
  +'<div class="two"><div><label for="pf">From</label><input id="pf" type="time" value="10:00"></div><div><label for="pe">Until</label><input id="pe" type="time" value="12:00"></div></div>'
  +'<label for="pd">Day</label><input id="pd" type="date" value="'+todayStr()+'">'
@@ -139,6 +140,13 @@ function circlesSheet(msg){
  +(pending.length?'<h2 style="font-size:18px;margin-top:16px">Waiting for your approval</h2><div class="card">'+pending.map(function(p){return '<div class="req"><div><b>'+esc(p.display_name)+'</b><div class="where">'+esc(p.circle_name)+'</div></div><div><button class="b sm on" data-a="decide" data-c="'+esc(p.circle_id)+'" data-p="'+esc(p.parent_id)+'" data-y="1">Approve</button> <button class="b sm" data-a="decide" data-c="'+esc(p.circle_id)+'" data-p="'+esc(p.parent_id)+'" data-y="0">Decline</button></div></div>'}).join("")+'</div>':'')
  +'<label for="cn">Start a new circle</label><input id="cn" placeholder="Class 2B"><button class="big" data-a="mkcircle">Create circle</button>'
  +'<label for="cj">Or join with a code</label><input id="cj" maxlength="6" placeholder="ABC123" style="text-transform:uppercase"><button class="big" data-a="joincircle">Request to join</button><div class="err" id="ce">'+esc(msg||"")+'</div><button class="link" data-a="signout">Sign out</button><button class="link" data-a="close">Done</button>');
+}
+function profileSheet(msg){
+ setSheet('<h2>Your profile</h2><label for="pn1">Your first name and last initial</label><input id="pn1" value="'+esc(me.display_name)+'">'
+ +'<label>Your children</label>'
+ +kids.map(function(k){return '<div class="req"><input data-kid="'+esc(k.id)+'" value="'+esc(k.first_name)+'" aria-label="Child first name"><button class="b sm del" data-a="rmkid" data-k="'+esc(k.id)+'">Remove</button></div>'}).join("")
+ +'<label for="nk">Add a child</label><input id="nk" placeholder="First name">'
+ +'<div class="err" id="pre">'+esc(msg||"")+'</div><button class="big" data-a="saveprofile">Save changes</button><button class="link" data-a="close">Cancel</button>');
 }
 function draw(){
  if(!me)return;
@@ -154,7 +162,7 @@ function draw(){
   +'<div class="when">'+esc(dayLabel(s))+', '+tm(s)+'–'+tm(e)+(p.child?' · '+esc(p.child.first_name):'')+'</div><div class="where">'+esc(p.place_name)+'</div>'+(p.note?'<p class="note">'+esc(p.note)+'</p>':'')
   +'<div class="row"><span class="going">'+rs.length+' '+(party?"going":"joining")+(rs.length?": "+esc(rs.map(function(r){return(r.parents&&r.parents.display_name||"").split(" ")[0]}).join(", ")):"")+'</span><div>'
   +(host?'<button class="b sm del" data-a="delplan" data-p="'+esc(p.id)+'">Delete</button>':'<button class="b '+(mineR?"on":"go")+'" data-a="reply" data-p="'+esc(p.id)+'">'+label+'</button>')+'</div></div></article>'}).join("");
- $("app").innerHTML='<div class="head"><h1>Pop-by</h1><button class="b sm" data-a="circles">Circles'+(pending.length?' ('+pending.length+')':'')+'</button></div><p class="sub">Hi '+esc(me.display_name)+'. No invites, no pressure. Just: we\'ll be here.</p>'
+ $("app").innerHTML='<div class="head"><h1>Pop-by</h1><div><button class="b sm" data-a="profile">Profile</button> <button class="b sm" data-a="circles">Circles'+(pending.length?' ('+pending.length+')':'')+'</button></div></div><p class="sub">Hi '+esc(me.display_name)+'. No invites, no pressure. Just: we\'ll be here.</p>'
   +(ap.length?'<div class="chips">'+chips+'</div>':'')
   +(cards||'<div class="empty">'+(ap.length?"Nothing planned yet.<br>Tap “Share a plan” to tell your circle where you’ll be.":"Create a circle, or join one with a code. A new member is approved by the organiser first.")+'</div>')
   +'<button class="fab" data-a="'+(ap.length?"newplan":"circles")+'">'+(ap.length?"+ Share a plan":"Set up a circle")+'</button>';
@@ -176,6 +184,18 @@ async function act(b){
   setSheet("");await load()}
  else if(a==="sel"){sel=b.dataset.c;draw()}
  else if(a==="circles")circlesSheet();
+ else if(a==="profile")profileSheet();
+ else if(a==="rmkid"){if(kids.length<2){E("pre","Keep at least one child. Add the new name first, then remove the old one.");return}
+  if(!confirm("Remove this child? Plans already posted for them will stay, without a name."))return;
+  var rk=await sb.from("children").delete().eq("id",b.dataset.k);if(rk.error)throw rk.error;await load();profileSheet()}
+ else if(a==="saveprofile"){var nm=v("pn1");if(!nm){E("pre","Your name can't be empty.");return}
+  var ins=document.querySelectorAll("#sheet [data-kid]");
+  for(var j=0;j<ins.length;j++){if(!ins[j].value.trim()){E("pre","A child's name can't be empty. Use Remove to delete one.");return}}
+  var u1=await sb.from("parents").update({display_name:nm}).eq("id",uid);if(u1.error)throw u1.error;
+  for(var m=0;m<ins.length;m++){var val=ins[m].value.trim(),kd=kids.find(function(x){return x.id===ins[m].dataset.kid});
+   if(kd&&kd.first_name!==val){var u2=await sb.from("children").update({first_name:val}).eq("id",kd.id);if(u2.error)throw u2.error}}
+  var nk=v("nk");if(nk){var i2=await sb.from("children").insert({parent_id:uid,first_name:nk});if(i2.error)throw i2.error}
+  setSheet("");toast("Profile saved");await load()}
  else if(a==="newplan")planSheet();
  else if(a==="mkcircle"){var cn=v("cn");if(!cn){E("ce","Give your circle a name.");return}
   var q=await sb.rpc("create_circle",{p_name:cn});if(q.error)throw q.error;await load();circlesSheet()}

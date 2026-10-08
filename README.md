@@ -9,6 +9,7 @@ It is a web app that installs on a phone home screen. **You do not need your own
 | File | What it does |
 | --- | --- |
 | `index.html` | The whole app |
+| `config.js` | Your Supabase URL and anon key (the only file you edit) |
 | `schema.sql` | Database tables, privacy rules and functions (run once in Supabase) |
 | `manifest.webmanifest`, `sw.js`, `icon*.png`, `icon.svg`, `apple-touch-icon.png` | Make it installable on a phone |
 | `.gitlab-ci.yml` | Only needed for GitLab Pages |
@@ -19,7 +20,7 @@ It is a web app that installs on a phone home screen. **You do not need your own
 2. Open **SQL Editor**, paste all of `schema.sql`, and press **Run**. It should finish without errors.
 3. Open **Authentication > Providers > Email** and turn **off** "Confirm email" while you test with family and friends. Turn it back on before real users.
 4. Open **Project Settings > API**. Copy the **Project URL** and the **anon public** key.
-5. In `index.html`, near the top of the script, replace `PASTE_YOUR_SUPABASE_URL` and `PASTE_YOUR_ANON_KEY` with those two values.
+5. Open `config.js` and replace `PASTE_YOUR_SUPABASE_URL` and `PASTE_YOUR_ANON_KEY` with those two values (keep the quote marks). Your keys live only in this file, so updating `index.html` later never erases them.
 
 The anon key is meant to be public. The database rules in `schema.sql` are what protect the data. Never put the `service_role` key anywhere in this project.
 
@@ -60,4 +61,4 @@ Then, in Supabase, open **Authentication > URL Configuration** and set **Site UR
 
 ## Changing the app
 
-Edit `index.html`, upload it again, and refresh. If a phone still shows the old version, close and reopen the app once.
+Upload the new `index.html` over the old one (Add file > Upload files, same name) and refresh. `config.js` keeps your keys. If a phone still shows the old version, close and reopen the app once.

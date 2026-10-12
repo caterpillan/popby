@@ -29,7 +29,34 @@ Deno.serve(async (req) => {
   if (req.headers.get("x-push-secret") !== Deno.env.get("PUSH_SECRET")) {
     return new Response("Not allowed", { status: 401 });
   }
-  const { plan_id, kind } = await req.json();
+  const { plan_id, kind, parent_id } = await req.json();
+
+  // A "leave by" reminder for one person.
+  if (kind === "leave") {
+    const { data: t, error: terr } = await sb.rpc("leave_targets", { p_plan: plan_id, p_parent: parent_id });
+    if (terr) return new Response(terr.message, { status: 500 });
+    if (!t || !t.length) return new Response("nobody to remind");
+    const q = t[0];
+    const qs = new Date(q.starts_at);
+    const msg = JSON.stringify({
+      title: "Time to leave",
+      body: `${q.title} at ${q.place_name} · ${q.open_ended ? "from " : "starts "}${timeFmt.format(qs).replace(" ", "")}`,
+      tag: "leave-" + plan_id,
+    });
+    let n = 0;
+    await Promise.all(t.map(async (x: any) => {
+      try {
+        await webpush.sendNotification({ endpoint: x.endpoint, keys: { p256dh: x.p256dh, auth: x.auth } }, msg, { TTL: 1800 });
+        n++;
+      } catch (err: any) {
+        if (err.statusCode === 404 || err.statusCode === 410) {
+          await sb.from("push_subscriptions").delete().eq("endpoint", x.endpoint);
+        }
+      }
+    }));
+    return new Response(`reminded ${n}`);
+  }
+
   const { data, error } = await sb.rpc("push_targets", { p_plan: plan_id });
   if (error) return new Response(error.message, { status: 500 });
   if (!data || !data.length) return new Response("nobody to notify");

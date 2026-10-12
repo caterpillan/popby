@@ -96,8 +96,8 @@ input,select,textarea{width:100%;font:inherit;padding:12px;border-radius:12px;bo
 <script>
 // Your Supabase URL and anon key now live in config.js (see README). The anon key is safe to publish; the database rules protect the data.
 var VAPID_KEY=window.POPBY_VAPID||"BE57jeKqoeceKvb-pJORjLhdYNWH_U8GvTCw03z0tC0BDfygs2rQ2Ja25sinoSUjFcEhZoryPcrgpmS3ieE3SCs";
-var SUPABASE_URL=window.POPBY_URL||"https://ibojcsptkmwwdbnmgoam.supabase.co";
-var SUPABASE_ANON_KEY=window.POPBY_KEY||"sb_publishable_KnFNch4lX3z5CJ0mRVOXRQ_Ddjh34Eh";
+var SUPABASE_URL=window.POPBY_URL||"PASTE_YOUR_SUPABASE_URL";
+var SUPABASE_ANON_KEY=window.POPBY_KEY||"PASTE_YOUR_ANON_KEY";
 
 var $=function(i){return document.getElementById(i)};
 var esc=function(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
@@ -146,7 +146,7 @@ function dayLabel(d){return d.toDateString()===new Date().toDateString()?"Today"
 var COLORS=["#4361EE","#E4584A","#2EC4B6","#FFC83D","#7B2CBF","#FF8FAB","#1F8A5F","#F77F00"],EMOJIS=["⚽","🏀","🎂","🎈","🏫","🎒","🌳","🛝","🏠","🎨","🎵","🐶","🚲","🏊","🍕","🌈","⭐","🧸","🍎","🐢","👋","🌻","🚀","🎮"];
 var stars={},drawerOpen=false,pickN={color:COLORS[0],emoji:"👋"},pickE={color:COLORS[0],emoji:"👋"},planHides=[];
 var sb,uid=null,me=null,kids=[],blocked=[],dismissed=[],safeT=null,circles=[],plans=[],replies=[],pending=[],sel="all",subscribed=false,toastFor=null,toastKind="New",timer=null;
-var nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null;
+var nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null,counts={},reminders={},ckw=null;
 function daysLeft(ds){var e=new Date(ds+"T00:00:00"),t=new Date();t.setHours(0,0,0,0);return Math.round((e-t)/864e5)}
 function longDate(ds){return new Date(ds+"T00:00:00").toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short",year:"numeric"})}
 function endLabel(ds){if(!ds)return "No end date";var n=daysLeft(ds);if(n<0)return "Ended";if(n===0)return "Ends today";if(n===1)return "Ends tomorrow";if(n<=14)return "Ends in "+n+" days";return "Ends "+new Date(ds+"T00:00:00").toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"})}
@@ -182,15 +182,19 @@ async function load(){
  var r=await Promise.all([
   sb.from("parents").select("*").eq("id",uid).maybeSingle(),
   sb.from("children").select("*").eq("parent_id",uid),
-  sb.from("circle_members").select("circle_id,role,status,circles!circle_id(name,invite_code,ends_on,color,emoji)").eq("parent_id",uid),
+  sb.from("circle_members").select("circle_id,role,status,show_names,circles!circle_id(name,invite_code,ends_on,color,emoji)").eq("parent_id",uid),
   sb.from("plans").select("*,host:parents!host_id(display_name),child:children!child_id(first_name),circle:circles!circle_id(name)").gte("ends_at",start.toISOString()).order("starts_at"),
   sb.from("plan_replies").select("plan_id,parent_id,status,parents!parent_id(display_name)"),
   sb.rpc("pending_requests"),
   sb.from("circle_nicknames").select("circle_id,nickname"),
   sb.from("plan_dismissals").select("plan_id"),
-  sb.from("circle_prefs").select("circle_id,starred")]);
+  sb.from("circle_prefs").select("circle_id,starred"),
+  sb.rpc("reply_counts"),
+  sb.from("leave_reminders").select("plan_id,remind_at")]);
  var bad=r.find(function(x){return x.error});if(bad){toast("Couldn't load: "+bad.error.message)}
  me=r[0].data;kids=r[1].data||[];circles=r[2].data||[];plans=r[3].data||[];replies=r[4].data||[];pending=r[5].data||[];
+ counts={};(r[9].data||[]).forEach(function(x){(counts[x.plan_id]=counts[x.plan_id]||{})[x.status]=x.n});
+ reminders={};(r[10].data||[]).forEach(function(x){reminders[x.plan_id]=x.remind_at});
  stars={};(r[8].data||[]).forEach(function(x){if(x.starred)stars[x.circle_id]=true});
  dismissed=(r[7].data||[]).map(function(x){return x.plan_id});
  nicks={};(r[6].data||[]).forEach(function(n){nicks[n.circle_id]=n.nickname});
@@ -233,14 +237,26 @@ function circlesSheet(msg){
   return '<div class="card"><div class="top"><div style="display:flex;gap:12px;align-items:center"><span class="dbub">'+bub(ci)+'</span><div><b>'+esc(cname(id,ci.name))+'</b>'+(nicks[id]?'<div class="where">'+esc(ci.name)+'</div>':'')+'<div class="where">'+(c.role==="organiser"?"You organise this circle · ":"")+esc(endLabel(ci.ends_on))+'</div></div></div><button class="b sm" data-a="opencircle" data-c="'+esc(id)+'">Open</button></div></div>'}).join("")
   +wait.map(function(c){return '<div class="card"><div class="top"><div><b>Waiting for approval</b><div class="where">The organiser has to approve you first</div></div><button class="b sm del" data-a="leave" data-c="'+esc(c.circle_id)+'">Withdraw</button></div></div>'}).join("");
  var join=joinInfo
-  ?'<div class="card"><b>'+esc(joinInfo.name)+'</b><div class="where">Organised by '+esc(joinInfo.organiser)+'</div><div class="where">'+esc(endLabel(joinInfo.ends_on))+(joinInfo.ends_on?' ('+esc(longDate(joinInfo.ends_on))+')':'')+'</div><p class="hint">Only join circles run by someone you know. The organiser has to approve you, and you can leave at any time.</p><button class="big" data-a="joincircle">Request to join</button><button class="link" data-a="clearjoin">Not this one</button></div>'
+  ?'<div class="card"><b>'+esc(joinInfo.name)+'</b><div class="where">Organised by '+esc(joinInfo.organiser)+'</div><div class="where">'+esc(endLabel(joinInfo.ends_on))+(joinInfo.ends_on?' ('+esc(longDate(joinInfo.ends_on))+')':'')+'</div><p class="hint">Only join circles run by someone you know. The organiser has to approve you, and you can leave at any time.</p>'+(joinInfo.options?'<label>Secret word</label><p class="hint">The organiser gave you a secret word. Pick it from the list. <b>You only get one try.</b></p><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+joinInfo.options.map(function(w){return '<button class="b sm'+(joinInfo.word===w?' on':'')+'" data-a="pickword" data-w="'+esc(w)+'">'+esc(w)+'</button>'}).join("")+'</div>':'')+'<label>Your name on replies</label><button class="b sm'+(joinInfo.show?' on':'')+'" data-a="joinshow">Show my name: '+(joinInfo.show?'On':'Off')+'</button><p class="hint">Off (recommended): only the person who posted an activity sees your name on your reply. Everyone still sees the totals, like "3 going". You can change this later in the circle\'s settings.</p><button class="big" data-a="joincircle">Request to join</button><button class="link" data-a="clearjoin">Not this one</button></div>'
   :'<label for="cj">Or join with a code</label><input id="cj" maxlength="6" placeholder="ABC123" style="text-transform:uppercase"><button class="big" data-a="lookup">Find circle</button>';
  setSheet('<h2>Your circles</h2>'+(cards||'<p class="hint">You\'re not in a circle yet.</p>')
  +(pending.length?'<h2 style="font-size:18px;margin-top:16px">Waiting for your approval</h2><div class="card">'+pending.map(function(p){return '<div class="req"><div><b>'+esc(p.display_name)+'</b><div class="where">'+esc(p.circle_name)+'</div></div><div><button class="b sm on" data-a="decide" data-c="'+esc(p.circle_id)+'" data-p="'+esc(p.parent_id)+'" data-y="1">Approve</button> <button class="b sm" data-a="decide" data-c="'+esc(p.circle_id)+'" data-p="'+esc(p.parent_id)+'" data-y="0">Decline</button> <button class="b sm del" data-a="declineblock" data-p="'+esc(p.parent_id)+'">Block</button></div></div>'}).join("")+'<p class="hint">Only approve people you know in real life. Do not recognise someone? Tap Block.</p></div>':'')
  +'<label for="cn">Start a new circle</label><input id="cn" placeholder="Class 2B"><label>Circle look</label><p class="hint">Pick a colour and an icon. Everyone in the circle sees it.</p>'+stylePicker("n",pickN)
+ +'<label for="kw">Secret word check (optional)</label><p class="hint">Extra protection. Pick a secret word and 2 or 3 decoy words. People joining see them all mixed up and get one try, so only someone you told can get in. Pop-by never sends the word to anyone: tell people yourself, in person or by text.</p><input id="kw" maxlength="30" autocomplete="off" placeholder="Secret word, e.g. Tiger"><input id="kd1" maxlength="30" autocomplete="off" placeholder="Decoy word 1" style="margin-top:6px"><input id="kd2" maxlength="30" autocomplete="off" placeholder="Decoy word 2" style="margin-top:6px"><input id="kd3" maxlength="30" autocomplete="off" placeholder="Decoy word 3 (optional)" style="margin-top:6px">'
  +'<label for="ce2">Ends on (optional)</label><input id="ce2" type="text" inputmode="text" autocomplete="off" placeholder="e.g. 12 Oct, 12/10 or tomorrow"><button type="button" class="b sm" data-a="cal" data-t="ce2" style="margin-top:6px">Calendar</button><input type="date" id="ce2_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none"><div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"><button type="button" class="b sm" data-a="qd" data-t="ce2" data-n="7">+1 week</button><button type="button" class="b sm" data-a="qd" data-t="ce2" data-n="30">+1 month</button><button type="button" class="b sm" data-a="qd" data-t="ce2" data-n="90">+3 months</button><button type="button" class="b sm" data-a="qd" data-t="ce2" data-n="0">No end date</button></div><p class="hint">Type a date like 12 Oct or 12/10/2026, or use a button.</p><p class="hint">Everyone sees this date before they join. When it passes, the circle and its activities disappear for everyone, so you are not left with old circles. Leave empty for a circle that keeps going.</p>'
  +'<button class="big" data-a="mkcircle">Create circle</button>'
  +join+'<div class="err" id="ce">'+esc(msg||"")+'</div><button class="link" data-a="signout">Sign out</button><button class="link" data-a="close">Done</button>');
+}
+function leaveSheet(pid,msg){
+ var p=plans.find(function(x){return x.id===pid});if(!p){setSheet("");return}
+ var s=new Date(p.starts_at),cur=reminders[pid]&&new Date(reminders[pid])>new Date()?tm(new Date(reminders[pid])):"";
+ setSheet('<h2>Leave-by alert</h2><div class="card"><b>'+esc(p.title)+'</b><div class="where">'+esc(dayLabel(s))+', '+tm(s)+' · '+esc(p.place_name)+'</div></div>'
+ +'<p class="hint">Choose the time you need to set off. Your phone gets a notification then.</p>'
+ +'<label for="lt">Alert me at</label><input id="lt" type="text" inputmode="text" autocomplete="off" placeholder="e.g. 9:30am" value="'+esc(cur)+'">'
+ +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"><button type="button" class="b sm" data-a="lq" data-n="15" data-p="'+esc(pid)+'">15 min before start</button><button type="button" class="b sm" data-a="lq" data-n="30" data-p="'+esc(pid)+'">30 min before</button><button type="button" class="b sm" data-a="lq" data-n="60" data-p="'+esc(pid)+'">1 hour before</button></div>'
+ +'<div id="leavepush"></div><div class="err" id="le">'+esc(msg||"")+'</div>'
+ +'<button class="big" data-a="saveleave" data-p="'+esc(pid)+'">Set alert</button>'+(cur?'<button class="link" data-a="clearleave" data-p="'+esc(pid)+'">Turn this alert off</button>':'')+'<button class="link" data-a="close">Cancel</button>');
+ pushState().then(function(st){var el=$("leavepush");if(el&&st.s!=="on")el.innerHTML='<p class="hint" style="color:var(--coral)"><b>Notifications are off on this phone,</b> so you would not get the alert. Turn them on in Settings first.</p>'});
 }
 function circleSheet(cid,msg){
  var c=circles.find(function(x){return x.circle_id===cid});
@@ -255,7 +271,9 @@ function circleSheet(cid,msg){
  +'<h2 style="font-size:18px;margin-top:16px">Members ('+act.length+')</h2><div class="card">'+act.map(function(r){
    return '<div class="req"><div><b>'+esc(r.display_name)+(r.parent_id===uid?' (you)':'')+'</b><div class="where">'+(r.role==="organiser"?"Organiser":"Member")+'</div></div>'
    +(r.parent_id!==uid?'<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'+(org&&r.role!=="organiser"?'<button class="b sm" data-a="mkorg" data-c="'+esc(cid)+'" data-p="'+esc(r.parent_id)+'">Make organiser</button> <button class="b sm del" data-a="rmmem" data-c="'+esc(cid)+'" data-p="'+esc(r.parent_id)+'">Remove</button>':'')+'<button class="b sm" data-a="safety" data-u="'+esc(r.parent_id)+'" data-c="'+esc(cid)+'">Report / block</button></div>':'')+'</div>'}).join("")+'</div>'
- +(org&&gone.length?'<h2 style="font-size:18px;margin-top:16px">Removed ('+gone.length+')</h2><p class="hint">Only you can see this list. They are not told, and they cannot see this circle or rejoin until you allow them back.</p><div class="card">'+gone.map(function(r){return '<div class="req"><b>'+esc(r.display_name)+'</b><button class="b sm" data-a="allow" data-c="'+esc(cid)+'" data-p="'+esc(r.parent_id)+'">Allow back</button></div>'}).join("")+'</div>':'')
+ +(org&&gone.length?'<h2 style="font-size:18px;margin-top:16px">Removed ('+gone.length+')</h2><p class="hint">Only you can see this list. This also includes anyone who picked the wrong secret word. They are not told, and they cannot see this circle or rejoin until you allow them back.</p><div class="card">'+gone.map(function(r){return '<div class="req"><b>'+esc(r.display_name)+'</b><button class="b sm" data-a="allow" data-c="'+esc(cid)+'" data-p="'+esc(r.parent_id)+'">Allow back</button></div>'}).join("")+'</div>':'')
+ +'<h2 style="font-size:18px;margin-top:16px">Your name on replies</h2><button class="b sm'+(c.show_names?' on':'')+'" data-a="togglenames" data-c="'+esc(cid)+'">Show my name: '+(c.show_names?'On':'Off')+'</button><p class="hint">'+(c.show_names?'On: people in this circle can see your name when you reply.':'Off: only the person who posted an activity sees your name on your reply. Everyone still sees the totals.')+'</p>'
+ +(org?'<h2 style="font-size:18px;margin-top:16px">Secret word check</h2><p class="hint">'+(ckw?'On. People joining pick the secret word from a mixed-up list and get one try. A wrong pick quietly puts them on the Removed list until you allow them back.':'Off. Anyone with the code can ask to join (you still approve them).')+' Pop-by never sends the word to anyone: tell people yourself.</p><div class="card"><input id="kw" maxlength="30" autocomplete="off" placeholder="Secret word" value="'+esc(ckw?ckw.secret:"")+'">'+[0,1,2].map(function(i){return '<input id="kd'+(i+1)+'" maxlength="30" autocomplete="off" placeholder="Decoy word '+(i+1)+'" style="margin-top:6px" value="'+esc(ckw&&ckw.decoys[i]||"")+'">'}).join("")+'<div style="display:flex;gap:8px;margin-top:10px"><button class="b sm on" data-a="savekw" data-c="'+esc(cid)+'">Save</button>'+(ckw?'<button class="b sm del" data-a="clearkw" data-c="'+esc(cid)+'">Turn off</button>':'')+'</div></div>':'')
  +'<label for="nn">Your own name for this circle</label><input id="nn" value="'+esc(nicks[cid]||"")+'" placeholder="'+esc(ci.name)+'"><p class="hint">Only you see this name. Leave empty to use the circle name.</p><button class="b sm on" data-a="savenick" data-c="'+esc(cid)+'">Save name</button>'
  +'<div class="err" id="ce3">'+esc(msg||"")+'</div><button class="link" data-a="leave" data-c="'+esc(cid)+'">Leave this circle</button><button class="link" data-a="circles">Back</button>');
 }
@@ -349,13 +367,15 @@ function draw(){
   var rs=replies.filter(function(r){return r.plan_id===p.id}),myR=(rs.find(function(r){return r.parent_id===uid})||{}).status;
   var gs=rs.filter(function(r){return r.status==="going"}),ms=rs.filter(function(r){return r.status==="maybe"});
   var fn=function(a){return a.map(function(r){return(r.parents&&r.parents.display_name||"").split(" ")[0]}).join(", ")};
-  var counts=(gs.length?'<b>'+gs.length+' going</b>: '+esc(fn(gs)):'')+(gs.length&&ms.length?' · ':'')+(ms.length?ms.length+' might pop by: '+esc(fn(ms)):'')||'No replies yet';
+  var C=counts[p.id]||{},ng=Math.max(C.going||0,gs.length),nm=Math.max(C.maybe||0,ms.length);
+  var nl=function(a,tot){var n=fn(a),x=tot-a.length;return n?': '+esc(n)+(x>0?' +'+x:''):''};
+  var cnt=(ng?'<b>'+ng+' going</b>'+nl(gs,ng):'')+(ng&&nm?' · ':'')+(nm?nm+' might pop by'+nl(ms,nm):'')||'No replies yet';
   var isNow=s<=now&&now<=e,ended=e<now,host=p.host_id===uid;
   var l1=party?"Maybe":"I might pop by",l2=party?"Going":"See you there";
   return '<article class="card '+(party?"party":isNow?"now":"")+(ended?" old":"")+'"><div class="top"><div><div class="who">'+esc(p.host&&p.host.display_name)+' · '+esc(cname(p.circle_id,p.circle&&p.circle.name))+'</div><div class="title">'+esc(p.title)+'</div></div><span class="tag '+(party?"p":"")+'">'+(ended?"Ended":party?"RSVP":isNow?"Happening now":"Drop-in")+'</span></div>'+(p.edited_at&&!ended?'<div class="where" style="color:var(--coral);font-weight:700">Updated '+esc(ago(p.edited_at))+'</div>':'')
   +'<div class="when">'+esc(dayLabel(s))+', '+(p.open_ended?'from '+tm(s):tm(s)+'–'+tm(e)+(e.toDateString()!==s.toDateString()?' ('+esc(e.toLocaleDateString(undefined,{weekday:"short"}))+')':''))+((p.who_names||(p.child&&p.child.first_name))?' · '+esc(p.who_names||p.child.first_name):'')+'</div><div class="where">'+esc(p.place_name)+'</div>'+(p.note?'<p class="note">'+esc(p.note)+'</p>':'')
-  +'<div class="row"><span class="going">'+counts+'</span>'+(host?'<div><button class="b sm" data-a="editplan" data-p="'+esc(p.id)+'">Edit</button> <button class="b sm del" data-a="delplan" data-p="'+esc(p.id)+'">Delete</button></div>':'')+'</div>'
-  +(host?'':'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px"><button class="b '+(myR==="maybe"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="maybe" data-p="'+esc(p.id)+'">'+l1+'</button><button class="b '+(myR==="going"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="going" data-p="'+esc(p.id)+'">'+l2+'</button><button class="b" style="font-size:13px;padding:9px 4px" data-a="dismiss" data-p="'+esc(p.id)+'">Not for me</button></div>')+(host?'':'<button class="link" style="font-size:13px;margin-top:8px" data-a="safety" data-p="'+esc(p.id)+'">Report or block</button>')+'</article>'}).join("");
+  +'<div class="row"><span class="going">'+cnt+'</span>'+(host?'<div><button class="b sm" data-a="editplan" data-p="'+esc(p.id)+'">Edit</button> <button class="b sm del" data-a="delplan" data-p="'+esc(p.id)+'">Delete</button></div>':'')+'</div>'
+  +(host?'':'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px"><button class="b '+(myR==="maybe"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="maybe" data-p="'+esc(p.id)+'">'+l1+'</button><button class="b '+(myR==="going"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="going" data-p="'+esc(p.id)+'">'+l2+'</button><button class="b" style="font-size:13px;padding:9px 4px" data-a="dismiss" data-p="'+esc(p.id)+'">Not for me</button></div>')+(host||!myR||ended?'':'<div class="where" style="margin-top:10px">'+(reminders[p.id]?'🔔 '+(new Date(reminders[p.id])>now?'Leave-by alert at ':'Leave-by alert was at ')+tm(new Date(reminders[p.id]))+(new Date(reminders[p.id])>now?' <button class="b sm" data-a="leavesheet" data-p="'+esc(p.id)+'">Change</button>':''):'<button class="b sm" data-a="leavesheet" data-p="'+esc(p.id)+'">🔔 Set a leave-by alert</button>')+'</div>')+(host?'':'<button class="link" style="font-size:13px;margin-top:8px" data-a="safety" data-p="'+esc(p.id)+'">Report or block</button>')+'</article>'}).join("");
  $("app").innerHTML='<div class="head"><h1>Pop-by</h1><div><button class="b sm" data-a="profile">Settings</button> <button class="b sm" data-a="circles">Circles'+(pending.length?' ('+pending.length+')':'')+'</button></div></div><p class="sub">Hi '+esc(me.display_name.replace(/\.$/,''))+'. No invites, no pressure. Just: we\'ll be here.</p>'
   +(ap.length&&sel!=="all"?'<p class="hint" style="margin:0 0 8px">Showing <b>'+esc(cname(sel,(ap.find(function(c){return c.circle_id===sel})||{circles:{}}).circles.name))+'</b>. Tap All to see everything.</p>':'')
   +ap.filter(function(c){return c.circles.ends_on&&daysLeft(c.circles.ends_on)<=7&&(sel==="all"||sel===c.circle_id)}).map(function(c){return '<p class="hint">'+esc(cname(c.circle_id,c.circles.name))+': '+esc(endLabel(c.circles.ends_on).toLowerCase())+'. Its activities disappear after that.</p>'}).join("")
@@ -414,18 +434,48 @@ async function act(b){
   setSheet("");toast("Settings saved");await load()}
  else if(a==="newplan"){if(!contacts.length)await loadContacts();planSheet()}
  else if(a==="mkcircle"){var cn=v("cn");if(!cn){E("ce","Give your circle a name.");return}
+  var kw0=v("kw"),kd0=["kd1","kd2","kd3"].map(v).filter(Boolean);
+  if(kw0&&kd0.length<2){E("ce","Add at least 2 decoy words for the secret word check, or clear the secret word.");return}
+  if(!kw0&&kd0.length){E("ce","Add the secret word too, or clear the decoy words.");return}
   var ED=null;if(v("ce2")){ED=parseDate(v("ce2"));if(!ED||ED<todayStr()){E("ce","Type the end date like 12 Oct or 12/10/2026, in the future.");return}}
-  var q=await sb.rpc("create_circle",{p_name:cn,p_ends:ED,p_color:pickN.color,p_emoji:pickN.emoji});if(q.error){E("ce",q.error.message);return}await load();circlesSheet("Circle created. Share the code so people can ask to join.")}
+  var q=await sb.rpc("create_circle",{p_name:cn,p_ends:ED,p_color:pickN.color,p_emoji:pickN.emoji});if(q.error){E("ce",q.error.message);return}
+  if(kw0){var kq=await sb.rpc("set_circle_keyword",{p_circle:q.data,p_secret:kw0,p_decoys:kd0});if(kq.error){await load();circlesSheet("Circle created, but the secret word was not saved ("+kq.error.message+"). Open the circle to try again.");return}}
+  await load();circlesSheet("Circle created. Share the code so people can ask to join."+(kw0?" Tell them the secret word yourself.":""))}
  else if(a==="qd"){var el=$(b.dataset.t),n=+b.dataset.n;if(!n&&!b.dataset.keep)el.value="";else{var d=new Date();d.setDate(d.getDate()+n);el.value=fmtDate(d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()))}}
  else if(a==="cal"){var ci2=$(b.dataset.t+"_c");try{var cur=parseDate($(b.dataset.t).value);if(cur)ci2.value=cur;ci2.onchange=function(){if(ci2.value)$(b.dataset.t).value=fmtDate(ci2.value)};ci2.showPicker?ci2.showPicker():ci2.click()}catch(e2){ci2.click()}}
+ else if(a==="pickword"){joinInfo.word=b.dataset.w;circlesSheet()}
+ else if(a==="joinshow"){joinInfo.show=!joinInfo.show;circlesSheet()}
+ else if(a==="togglenames"){var tc=circles.find(function(x){return x.circle_id===b.dataset.c}),tn=await sb.rpc("set_show_names",{p_circle:b.dataset.c,p_show:!(tc&&tc.show_names)});if(tn.error)throw tn.error;await load();circleSheet(b.dataset.c)}
+ else if(a==="savekw"){var kw=v("kw"),kds=["kd1","kd2","kd3"].map(v).filter(Boolean);
+  if(!kw||kds.length<2){E("ce3","Type the secret word and at least 2 decoy words.");return}
+  var ks=await sb.rpc("set_circle_keyword",{p_circle:b.dataset.c,p_secret:kw,p_decoys:kds});if(ks.error){E("ce3",ks.error.message);return}
+  ckw={secret:kw,decoys:kds};circleSheet(b.dataset.c,"Saved. Tell people the secret word yourself.")}
+ else if(a==="clearkw"){if(!confirm("Turn off the secret word check? Anyone with the code will be able to ask to join (you still approve them)."))return;
+  var kc=await sb.rpc("clear_circle_keyword",{p_circle:b.dataset.c});if(kc.error)throw kc.error;ckw=null;circleSheet(b.dataset.c,"Secret word check is off.")}
+ else if(a==="leavesheet"){leaveSheet(b.dataset.p)}
+ else if(a==="lq"){var lp=plans.find(function(x){return x.id===b.dataset.p});if(lp)$("lt").value=tm(new Date(new Date(lp.starts_at).getTime()-(+b.dataset.n)*60000))}
+ else if(a==="saveleave"){var lp2=plans.find(function(x){return x.id===b.dataset.p});if(!lp2)return;
+  var lt=parseTime(v("lt"));if(!lt){E("le","Type a time like 9:30am.");return}
+  var ls=new Date(lp2.starts_at),le=new Date(lp2.ends_at),hh=+lt.slice(0,2),mm=+lt.slice(3),at=null;
+  [0,1].forEach(function(dn){if(at)return;var c2=new Date(ls.getFullYear(),ls.getMonth(),ls.getDate()+dn,hh,mm);if(c2>new Date()&&c2<=le)at=c2});
+  if(!at){E("le",new Date(ls.getFullYear(),ls.getMonth(),ls.getDate(),hh,mm)<=new Date()?"That time has already passed.":"Pick a time before the activity ends.");return}
+  var sr=await sb.rpc("set_leave_reminder",{p_plan:lp2.id,p_at:at.toISOString()});if(sr.error){E("le",sr.error.message);return}
+  setSheet("");toast("Alert set for "+tm(at));await load()}
+ else if(a==="clearleave"){var cl=await sb.rpc("clear_leave_reminder",{p_plan:b.dataset.p});if(cl.error)throw cl.error;setSheet("");toast("Alert turned off");await load()}
  else if(a==="lookup"){var cd=v("cj");if(!cd){E("ce","Enter the invite code.");return}
   var lk=await sb.rpc("circle_preview",{p_code:cd});if(lk.error)throw lk.error;
   if(!lk.data||!lk.data.length){E("ce","No circle with that code, or it has ended.");return}
-  joinInfo={code:cd,name:lk.data[0].name,ends_on:lk.data[0].ends_on,organiser:lk.data[0].organiser};circlesSheet()}
+  var jo=await sb.rpc("circle_join_options",{p_code:cd});
+  var opts=jo.data&&jo.data[0]&&jo.data[0].has_keyword?jo.data[0].options:null;
+  joinInfo={code:cd,name:lk.data[0].name,ends_on:lk.data[0].ends_on,organiser:lk.data[0].organiser,options:opts,word:null,show:false};circlesSheet()}
  else if(a==="clearjoin"){joinInfo=null;circlesSheet()}
- else if(a==="joincircle"){var j=await sb.rpc("join_circle",{p_code:joinInfo.code});if(j.error){E("ce",j.error.message);return}
+ else if(a==="joincircle"){if(joinInfo.options&&!joinInfo.word){E("ce","Pick the secret word first.");return}
+  var j=await sb.rpc("join_circle",{p_code:joinInfo.code,p_word:joinInfo.word,p_show_names:!!joinInfo.show});if(j.error){E("ce",j.error.message);return}
   var already=j.data==="member";joinInfo=null;await load();circlesSheet(already?"You are already in that circle.":"Request sent. The organiser has to approve you.")}
- else if(a==="opencircle"){await loadRoster(b.dataset.c);circleSheet(b.dataset.c)}
+ else if(a==="opencircle"){await loadRoster(b.dataset.c);ckw=null;
+  var oc=circles.find(function(x){return x.circle_id===b.dataset.c});
+  if(oc&&oc.role==="organiser"){var gk=await sb.rpc("get_circle_keyword",{p_circle:b.dataset.c});ckw=gk.data&&gk.data[0]||null}
+  circleSheet(b.dataset.c)}
  else if(a==="rmmem"){var rn=(roster.find(function(r){return r.parent_id===b.dataset.p})||{}).display_name||"this person";
   if(!confirm("Remove "+rn+"? They are not told. Their activities here are deleted, and they cannot rejoin unless you allow them back."))return;
   var rm=await sb.rpc("remove_member",{p_circle:b.dataset.c,p_parent:b.dataset.p});if(rm.error)throw rm.error;await loadRoster(b.dataset.c);circleSheet(b.dataset.c,rn+" was removed.");load()}

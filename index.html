@@ -70,8 +70,11 @@ input,select,textarea{width:100%;font:inherit;padding:12px;border-radius:12px;bo
 .acc.open .chev{transform:rotate(90deg)}
 .accb{display:none;padding:0 2px 14px}
 .acc.open .accb{display:block}
+.rbtn{position:relative;flex:none;width:46px;height:46px;border-radius:50%;border:2px solid var(--ink);background:var(--card);color:var(--ink);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
+.brand{display:flex;align-items:center;gap:8px;min-width:0}
+.brand img{width:34px;height:34px;border-radius:9px;flex:none}
 .backb{display:block;background:none;border:0;font:inherit;font-size:30px;line-height:1;color:var(--ink);cursor:pointer;min-width:44px;min-height:44px;text-align:left;padding:0;margin:-8px 0 2px -2px}
-.b.saved,.b.saved:disabled{background:var(--line)!important;border-color:var(--line)!important;color:var(--mute)!important;cursor:default}
+.b.saved,.b.saved:disabled,.big.saved,.big.saved:disabled{background:var(--line)!important;border-color:var(--line)!important;color:var(--mute)!important;cursor:default}
 .mine{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;padding:8px 12px;border-radius:12px;background:var(--bg);border:2px solid var(--line)}
 .bub.all{background:var(--ink);color:var(--bg);font-size:14px}
 .cnt{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;border-radius:10px;background:var(--coral);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 5px;border:2px solid var(--card)}
@@ -146,7 +149,7 @@ function dayLabel(d){return d.toDateString()===new Date().toDateString()?"Today"
 var COLORS=["#4361EE","#E4584A","#2EC4B6","#FFC83D","#7B2CBF","#FF8FAB","#1F8A5F","#F77F00"],EMOJIS=["⚽","🏀","🎂","🎈","🏫","🎒","🌳","🛝","🏠","🎨","🎵","🐶","🚲","🏊","🍕","🌈","⭐","🧸","🍎","🐢","👋","🌻","🚀","🎮"];
 var stars={},pickN={color:COLORS[0],emoji:"👋"},pickE={color:COLORS[0],emoji:"👋"},planHides=[];
 var sb,uid=null,me=null,kids=[],blocked=[],dismissed=[],safeT=null,circles=[],plans=[],replies=[],pending=[],sel="all",subscribed=false,toastFor=null,toastKind="New",timer=null;
-var nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null,counts={},reminders={},ckw=null;
+var nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null,counts={},reminders={},ckw=null,profPriv={};
 function daysLeft(ds){var e=new Date(ds+"T00:00:00"),t=new Date();t.setHours(0,0,0,0);return Math.round((e-t)/864e5)}
 function longDate(ds){return new Date(ds+"T00:00:00").toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short",year:"numeric"})}
 function endLabel(ds){if(!ds)return "No end date";var n=daysLeft(ds);if(n<0)return "Ended";if(n===0)return "Ends today";if(n===1)return "Ends tomorrow";if(n<=14)return "Ends in "+n+" days";return "Ends "+new Date(ds+"T00:00:00").toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"})}
@@ -191,8 +194,9 @@ async function load(){
   sb.from("plan_dismissals").select("plan_id"),
   sb.from("circle_prefs").select("circle_id,starred"),
   sb.rpc("reply_counts"),
-  sb.from("leave_reminders").select("plan_id,remind_at")]);
- var bad=r.find(function(x){return x.error});if(bad){toast("Couldn't load: "+bad.error.message)}
+  sb.from("leave_reminders").select("plan_id,remind_at"),
+  sb.from("profiles_private").select("first_name,last_name").eq("parent_id",uid).maybeSingle()]);
+ var bad=r.find(function(x,i){return x.error&&i!==11});profPriv=(r[11]&&r[11].data)||{};if(bad){toast("Couldn't load: "+bad.error.message)}
  me=r[0].data;kids=r[1].data||[];circles=r[2].data||[];plans=r[3].data||[];replies=r[4].data||[];pending=r[5].data||[];
  counts={};(r[9].data||[]).forEach(function(x){(counts[x.plan_id]=counts[x.plan_id]||{})[x.status]=x.n});
  reminders={};(r[10].data||[]).forEach(function(x){reminders[x.plan_id]=x.remind_at});
@@ -273,19 +277,27 @@ function circleSheet(cid,msg){
  var org=c.role==="organiser",ci=c.circles;
  var act=roster.filter(function(r){return r.status==="approved"}),gone=roster.filter(function(r){return r.status==="removed"});
  if(org)pickE={color:ci.color||COLORS[0],emoji:ci.emoji||"👋"};
- setSheet(backBtn("circles")+'<div style="display:flex;gap:12px;align-items:center"><span class="dbub">'+bub(ci)+'</span><h2 style="margin:0">'+esc(cname(cid,ci.name))+'</h2></div>'+(nicks[cid]?'<p class="hint">Circle name: '+esc(ci.name)+'</p>':'')
- +'<div class="card"><b>'+esc(endLabel(ci.ends_on))+'</b><div class="where">'+(ci.ends_on?esc(longDate(ci.ends_on))+'. After this date the circle and its activities disappear for everyone.':'This circle has no end date.')+'</div>'
- +(org?'<label for="ed">Change end date</label><input id="ed" type="text" inputmode="text" autocomplete="off" placeholder="e.g. 12 Oct, 12/10 or tomorrow" value="'+esc(ci.ends_on?fmtDate(ci.ends_on):"")+'"><button type="button" class="b sm" data-a="cal" data-t="ed" style="margin-top:6px">Calendar</button><input type="date" id="ed_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none"><div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="7">+1 week</button><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="30">+1 month</button><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="90">+3 months</button><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="0">No end date</button></div><p class="hint">Leave empty for no end date. Everyone sees the new date.</p><button class="b sm on" data-a="saveend" data-c="'+esc(cid)+'">Save date</button>':'')+'</div>'
- +(org?'<h2 style="font-size:18px;margin-top:16px">Circle look</h2><p class="hint">Everyone in the circle sees this colour and icon.</p>'+stylePicker("e",pickE)+'<button class="b sm on" data-a="savestyle" data-c="'+esc(cid)+'">Save look</button>':'')+'<p class="hint">Invite code</p><div class="code">'+esc(ci.invite_code)+'</div>'
- +'<h2 style="font-size:18px;margin-top:16px">Members ('+act.length+')</h2><div class="card">'+act.map(function(r){
+ var code='<div class="code">'+esc(ci.invite_code)+'</div><p class="hint">Share this code so people can ask to join. You approve each person'+(ckw?', and they also need the secret word':'')+'.</p>';
+ var mem='<div class="card" style="margin-top:6px">'+act.map(function(r){
    return '<div class="req"><div><b>'+esc(r.display_name)+(r.parent_id===uid?' (you)':'')+'</b><div class="where">'+(r.role==="organiser"?"Organiser":"Member")+'</div></div>'
-   +(r.parent_id!==uid?'<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'+(org&&r.role!=="organiser"?'<button class="b sm" data-a="mkorg" data-c="'+esc(cid)+'" data-p="'+esc(r.parent_id)+'">Make organiser</button> <button class="b sm del" data-a="rmmem" data-c="'+esc(cid)+'" data-p="'+esc(r.parent_id)+'">Remove</button>':'')+'<button class="b sm" data-a="safety" data-u="'+esc(r.parent_id)+'" data-c="'+esc(cid)+'">Report / block</button></div>':'')+'</div>'}).join("")+'</div>'
- +(org&&gone.length?'<h2 style="font-size:18px;margin-top:16px">Removed ('+gone.length+')</h2><p class="hint">Only you can see this list. This also includes anyone who picked the wrong secret word. They are not told, and they cannot see this circle or rejoin until you allow them back.</p><div class="card">'+gone.map(function(r){return '<div class="req"><b>'+esc(r.display_name)+'</b><button class="b sm" data-a="allow" data-c="'+esc(cid)+'" data-p="'+esc(r.parent_id)+'">Allow back</button></div>'}).join("")+'</div>':'')
- +'<h2 style="font-size:18px;margin-top:16px">Keep at the top</h2><button class="b sm'+(stars[cid]?' on':'')+'" data-a="star" data-c="'+esc(cid)+'">'+(stars[cid]?'\u2605 Starred':'\u2606 Star this circle')+'</button><p class="hint">Starred circles come first in the row at the top. Only you see this.</p>'
- +'<h2 style="font-size:18px;margin-top:16px">Your name on replies</h2><button class="b sm'+(c.show_names?' on':'')+'" data-a="togglenames" data-c="'+esc(cid)+'">Show my name: '+(c.show_names?'On':'Off')+'</button><p class="hint">'+(c.show_names?'On: people in this circle can see your name when you reply.':'Off: only the person who posted an activity sees your name on your reply. Everyone still sees the totals.')+'</p>'
- +(org?'<h2 style="font-size:18px;margin-top:16px">Secret word check</h2><p class="hint">'+(ckw?'On. People joining pick the secret word from a mixed-up list and get one try. A wrong pick quietly puts them on the Removed list until you allow them back.':'Off. Anyone with the code can ask to join (you still approve them).')+' Pop-by never sends the word to anyone: tell people yourself.</p><div class="card"><input id="kw" maxlength="30" autocomplete="off" placeholder="Secret word" value="'+esc(ckw?ckw.secret:"")+'">'+[0,1,2].map(function(i){return '<input id="kd'+(i+1)+'" maxlength="30" autocomplete="off" placeholder="Decoy word '+(i+1)+'" style="margin-top:6px" value="'+esc(ckw&&ckw.decoys[i]||"")+'">'}).join("")+'<div style="display:flex;gap:8px;margin-top:10px"><button class="b sm on" data-a="savekw" data-c="'+esc(cid)+'">Save</button>'+(ckw?'<button class="b sm del" data-a="clearkw" data-c="'+esc(cid)+'">Turn off</button>':'')+'</div></div>':'')
- +'<label for="nn">Your own name for this circle</label><input id="nn" value="'+esc(nicks[cid]||"")+'" placeholder="'+esc(ci.name)+'"><p class="hint">Only you see this name. Leave empty to use the circle name.</p><button class="b sm on" data-a="savenick" data-c="'+esc(cid)+'">Save name</button>'
- +'<div class="err" id="ce3">'+esc(msg||"")+'</div><button class="link" data-a="leave" data-c="'+esc(cid)+'">Leave this circle</button>');
+   +(r.parent_id!==uid?'<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'+(org&&r.role!=="organiser"?'<button class="b sm" data-a="mkorg" data-c="'+esc(cid)+'" data-p="'+esc(r.parent_id)+'">Make organiser</button> <button class="b sm del" data-a="rmmem" data-c="'+esc(cid)+'" data-p="'+esc(r.parent_id)+'">Remove</button>':'')+'<button class="b sm" data-a="safety" data-u="'+esc(r.parent_id)+'" data-c="'+esc(cid)+'">Report / block</button></div>':'')+'</div>'}).join("")+'</div>';
+ var endB='<p class="hint" style="margin-top:0">'+(ci.ends_on?esc(longDate(ci.ends_on))+'. After this date the circle and its activities disappear for everyone.':'This circle has no end date.')+'</p>'
+  +(org?'<label for="ed">Change end date</label><input id="ed" type="text" inputmode="text" autocomplete="off" placeholder="e.g. 12 Oct, 12/10 or tomorrow" value="'+esc(ci.ends_on?fmtDate(ci.ends_on):"")+'"><button type="button" class="b sm" data-a="cal" data-t="ed" style="margin-top:6px">Calendar</button><input type="date" id="ed_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none"><div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="7">+1 week</button><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="30">+1 month</button><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="90">+3 months</button><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="0">No end date</button></div><p class="hint">Leave empty for no end date. Everyone sees the new date.</p><button class="b sm on" data-a="saveend" data-c="'+esc(cid)+'">Save date</button>':'');
+ var lookB='<p class="hint" style="margin-top:0">Everyone in the circle sees this colour and icon.</p>'+stylePicker("e",pickE)+'<button class="b sm on" data-a="savestyle" data-c="'+esc(cid)+'">Save look</button>';
+ var kwB='<p class="hint" style="margin-top:0">'+(ckw?'On. People joining pick the secret word from a mixed-up list and get one try. A wrong pick quietly puts them on the Removed list until you allow them back.':'Off. Anyone with the code can ask to join (you still approve them).')+' Pop-by never sends the word to anyone: tell people yourself.</p><div class="card"><input id="kw" maxlength="30" autocomplete="off" placeholder="Secret word" value="'+esc(ckw?ckw.secret:"")+'">'+[0,1,2].map(function(i){return '<input id="kd'+(i+1)+'" maxlength="30" autocomplete="off" placeholder="Decoy word '+(i+1)+'" style="margin-top:6px" value="'+esc(ckw&&ckw.decoys[i]||"")+'">'}).join("")+'<div style="display:flex;gap:8px;margin-top:10px"><button class="b sm on" data-a="savekw" data-c="'+esc(cid)+'">Save</button>'+(ckw?'<button class="b sm del" data-a="clearkw" data-c="'+esc(cid)+'">Turn off</button>':'')+'</div></div>';
+ var goneB='<p class="hint" style="margin-top:0">Only you can see this list. This also includes anyone who picked the wrong secret word. They are not told, and they cannot see this circle or rejoin until you allow them back.</p><div class="card">'+gone.map(function(r){return '<div class="req"><b>'+esc(r.display_name)+'</b><button class="b sm" data-a="allow" data-c="'+esc(cid)+'" data-p="'+esc(r.parent_id)+'">Allow back</button></div>'}).join("")+'</div>';
+ var meB='<label style="margin-top:0">Keep at the top</label><button class="b sm'+(stars[cid]?' on':'')+'" data-a="star" data-c="'+esc(cid)+'">'+(stars[cid]?'★ Starred':'☆ Star this circle')+'</button><p class="hint">Starred circles come first in the row at the top. Only you see this.</p>'
+  +'<label>Your name on replies</label><button class="b sm'+(c.show_names?' on':'')+'" data-a="togglenames" data-c="'+esc(cid)+'">Show my name: '+(c.show_names?'On':'Off')+'</button><p class="hint">'+(c.show_names?'On: people in this circle can see your name when you reply.':'Off: only the person who posted an activity sees your name on your reply. Everyone still sees the totals.')+'</p>'
+  +'<label for="nn">Your own name for this circle</label><input id="nn" value="'+esc(nicks[cid]||"")+'" placeholder="'+esc(ci.name)+'"><p class="hint">Only you see this name. Leave empty to use the circle name.</p><button class="b sm on" data-a="savenick" data-c="'+esc(cid)+'">Save name</button>';
+ setSheet(backBtn("circles")+'<div style="display:flex;gap:12px;align-items:center"><span class="dbub">'+bub(ci)+'</span><h2 style="margin:0">'+esc(cname(cid,ci.name))+'</h2></div>'+(nicks[cid]?'<p class="hint">Circle name: '+esc(ci.name)+'</p>':'')
+ +'<div class="err" id="ce3">'+esc(msg||"")+'</div><div style="height:6px"></div>'
+ +acc("c_code","Invite code",code)
+ +acc("c_mem","Members ("+act.length+")",mem)
+ +acc("c_end","End date · "+esc(endLabel(ci.ends_on)),endB)
+ +(org?acc("c_look","Circle look",lookB)+acc("c_kw","Secret word check · "+(ckw?"On":"Off"),kwB):'')
+ +(org&&gone.length?acc("c_gone","Removed ("+gone.length+")",goneB):'')
+ +acc("c_me","Your settings",meB)
+ +'<div class="acc"></div><button class="link" data-a="leave" data-c="'+esc(cid)+'">Leave this circle</button>');
 }
 function b64u(k){var p="=".repeat((4-k.length%4)%4),b=(k+p).replace(/-/g,"+").replace(/_/g,"/"),r=atob(b),o=new Uint8Array(r.length);for(var i=0;i<r.length;i++)o[i]=r.charCodeAt(i);return o}
 function bufb64u(buf){var a=new Uint8Array(buf),s="";for(var i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")}
@@ -360,20 +372,25 @@ function profileSheet(msg){
   +(blocked.length?blocked.map(function(p){return '<div class="req"><b>'+esc(p.display_name)+'</b><button class="b sm" data-a="unblock" data-p="'+esc(p.blocked_id)+'">Unblock</button></div>'}).join(""):'<p class="hint">You have not blocked anyone.</p>');
  var kindSel=function(v,attr){return '<select '+attr+' style="width:auto;flex:none;padding:10px 8px" aria-label="Child or adult"><option value="child"'+(v==="child"?' selected':'')+'>Child</option><option value="adult"'+(v==="adult"?' selected':'')+'>Adult</option></select>'};
  var strip=function(h){return h.replace(/^<h2[^>]*>.*?<\/h2>/,"")};
- var prof='<label for="pn1">Your username (shown to people in your circles)</label><input id="pn1" value="'+esc(me.display_name)+'">'
- +'<label>Your family</label>'
- +kids.map(function(k){return '<div class="req" style="gap:6px"><input data-kid="'+esc(k.id)+'" value="'+esc(k.first_name)+'" aria-label="Family member first name" style="flex:1;min-width:0">'+'<button class="b sm del" data-a="rmkid" data-k="'+esc(k.id)+'">Remove</button></div>'}).join("")
- +'<label for="nk">Add a family member</label><div class="req" style="gap:6px"><input id="nk" placeholder="First name" style="flex:1;min-width:0"></div>'
- +'<div class="err" id="pre">'+esc(msg||"")+'</div><button class="big" data-a="saveprofile">Save changes</button>';
- if(msg)profOpen.prof=true;
- setSheet(backBtn("close")+'<h2>Settings</h2>'
- +acc("prof","Your name and family",prof)
+ setSheet(backBtn("close")+'<h2>Settings</h2>'+(msg?'<p class="hint">'+esc(msg)+'</p>':'')
+ +'<div class="acc"><button class="acch" data-a="profilepage"><span>Profile</span><span class="chev" aria-hidden="true">&#8250;</span></button></div>'
  +acc("push","Notifications",'<div id="pushbox"><p class="hint">Checking...</p></div>')
  +acc("hide","Hide my activities from",strip(hideList))
  +acc("dis","Hidden activities"+(dis.length?" ("+dis.length+")":""),strip(disList))
  +acc("blk","Blocked (safety)"+(blocked.length?" ("+blocked.length+")":""),strip(blk))
  +'<div class="acc"></div><button class="link" data-a="signout">Sign out</button>');
  pushBox();
+}
+function profilePage(msg){
+ var pp=profPriv||{};
+ setSheet(backBtn("profile")+'<h2>Profile</h2><label for="pn1">Username (shown to people in your circles)</label><input id="pn1" maxlength="40" value="'+esc(me.display_name)+'">'
+ +'<label for="pf1">First name (optional)</label><input id="pf1" maxlength="40" autocomplete="given-name" value="'+esc(pp.first_name||"")+'">'
+ +'<label for="pl1">Last name (optional)</label><input id="pl1" maxlength="40" autocomplete="family-name" value="'+esc(pp.last_name||"")+'">'
+ +'<p class="hint">Your first and last name are private. Only you can see them. Other people see your username.</p>'
+ +'<label>Your family</label>'
+ +kids.map(function(k){return '<div class="req" style="gap:6px"><input data-kid="'+esc(k.id)+'" value="'+esc(k.first_name)+'" aria-label="Family member first name" style="flex:1;min-width:0">'+'<button class="b sm del" data-a="rmkid" data-k="'+esc(k.id)+'">Remove</button></div>'}).join("")
+ +'<label for="nk">Add a family member</label><div class="req" style="gap:6px"><input id="nk" placeholder="First name" style="flex:1;min-width:0"></div>'
+ +'<div class="err" id="pre">'+esc(msg||"")+'</div><button class="big" data-a="saveprofile">Save changes</button>');
 }
 function editSheet(pid){
  var p=plans.find(function(x){return x.id===pid});if(!p)return;
@@ -411,7 +428,7 @@ function draw(){
   +'<div class="when">'+esc(dayLabel(s))+', '+(p.open_ended?'from '+tm(s):tm(s)+'–'+tm(e)+(e.toDateString()!==s.toDateString()?' ('+esc(e.toLocaleDateString(undefined,{weekday:"short"}))+')':''))+((p.who_names||(p.child&&p.child.first_name))?' · '+esc(p.who_names||p.child.first_name):'')+'</div><div class="where">'+esc(p.place_name)+'</div>'+(p.note?'<p class="note">'+esc(p.note)+'</p>':'')
   +'<div class="row"><span class="going">'+cnt+'</span>'+(host?'<div><button class="b sm" data-a="editplan" data-p="'+esc(p.id)+'">Edit</button> <button class="b sm del" data-a="delplan" data-p="'+esc(p.id)+'">Delete</button></div>':'')+'</div>'
   +(host?'':myR?'<div class="mine"><b>\u2713 '+(myR==="going"?(party?"You\'re going":"You\'re coming"):(party?"You said maybe":"You might pop by"))+'</b><button class="b sm" data-a="replysheet" data-p="'+esc(p.id)+'">Change</button></div>':'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px"><button class="b '+(myR==="maybe"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="maybe" data-p="'+esc(p.id)+'">'+l1+'</button><button class="b '+(myR==="going"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="going" data-p="'+esc(p.id)+'">'+l2+'</button><button class="b" style="font-size:13px;padding:9px 4px" data-a="dismiss" data-p="'+esc(p.id)+'">Not for me</button></div>')+(host||!myR||ended?'':'<div class="where" style="margin-top:10px">'+(reminders[p.id]?'🔔 '+(new Date(reminders[p.id])>now?'Leave-by alert at ':'Leave-by alert was at ')+tm(new Date(reminders[p.id]))+(new Date(reminders[p.id])>now?' <button class="b sm" data-a="leavesheet" data-p="'+esc(p.id)+'">Change</button>':''):'<button class="b sm" data-a="leavesheet" data-p="'+esc(p.id)+'">🔔 Set a leave-by alert</button>')+'</div>')+(host?'':'<button class="link" style="font-size:13px;margin-top:8px" data-a="safety" data-p="'+esc(p.id)+'">Report or block</button>')+'</article>'}).join("");
- $("app").innerHTML='<div class="head"><h1>Pop-by</h1><div><button class="b sm" data-a="profile">Settings</button> <button class="b sm" data-a="circles">Circles'+(pending.length?' ('+pending.length+')':'')+'</button></div></div><p class="sub">Hi '+esc(me.display_name.replace(/\.$/,''))+'. No invites, no pressure. Just: we\'ll be here.</p>'
+ $("app").innerHTML='<div class="head"><button class="rbtn" data-a="circles" aria-label="Circles'+(pending.length?', '+pending.length+' waiting for approval':'')+'"><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><defs><clipPath id="hl"><circle cx="19.5" cy="16" r="9"/></clipPath></defs><circle cx="12.5" cy="16" r="9" fill="#FF5D8F"/><circle cx="19.5" cy="16" r="9" fill="#2EC4B6"/><circle cx="12.5" cy="16" r="9" fill="#FFC83D" clip-path="url(#hl)"/></svg>'+(pending.length?'<span class="cnt">'+pending.length+'</span>':'')+'</button><div class="brand"><img src="icon.svg" alt=""><h1>Pop-by</h1></div><button class="rbtn" data-a="profile" aria-label="Settings"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div><p class="sub">Hi '+esc(me.display_name.replace(/\.$/,''))+'. No invites, no pressure. Just: we\'ll be here.</p>'
   +(ap.length?circleRow(sc,now):'')
   +(ap.length&&sel!=="all"?'<p class="hint" style="margin:0 0 8px">Showing <b>'+esc(cname(sel,(ap.find(function(c){return c.circle_id===sel})||{circles:{}}).circles.name))+'</b>. Tap All to see everything.</p>':'')
   +ap.filter(function(c){return c.circles.ends_on&&daysLeft(c.circles.ends_on)<=7&&(sel==="all"||sel===c.circle_id)}).map(function(c){return '<p class="hint">'+esc(cname(c.circle_id,c.circles.name))+': '+esc(endLabel(c.circles.ends_on).toLowerCase())+'. Its activities disappear after that.</p>'}).join("")
@@ -464,9 +481,10 @@ async function act(b){
   replySheet(sp,"Updated. The host sees your new reply.")}
  else if(a==="removereply"){var rr2=await sb.from("plan_replies").delete().eq("plan_id",b.dataset.p).eq("parent_id",uid);if(rr2.error)throw rr2.error;setSheet("");toast("Reply taken back");await load()}
  else if(a==="profile"){await Promise.all([loadContacts(),loadBlocked()]);profileSheet()}
+ else if(a==="profilepage"){profilePage()}
  else if(a==="rmkid"){if(kids.length<2){E("pre","Keep at least one family member. Add the new name first, then remove the old one.");return}
   if(!confirm("Remove this family member? Activities already posted keep the name they were posted with."))return;
-  var rk=await sb.from("children").delete().eq("id",b.dataset.k);if(rk.error)throw rk.error;await load();profileSheet()}
+  var rk=await sb.from("children").delete().eq("id",b.dataset.k);if(rk.error)throw rk.error;await load();profilePage()}
  else if(a==="saveprofile"){var nm=v("pn1");if(!nm){E("pre","Your name can't be empty.");return}
   var ins=document.querySelectorAll("#sheet [data-kid]");
   for(var j=0;j<ins.length;j++){if(!ins[j].value.trim()){E("pre","A name can't be empty. Use Remove to delete one.");return}}
@@ -475,7 +493,8 @@ async function act(b){
    var kk=document.querySelector('#sheet [data-kidkind="'+ins[m].dataset.kid+'"]');var kv=kk?kk.value:(kd&&kd.kind)||"child";
    if(kd&&(kd.first_name!==val||(kd.kind||"child")!==kv)){var u2=await sb.from("children").update({first_name:val,kind:kv}).eq("id",kd.id);if(u2.error)throw u2.error}}
   var nk=v("nk");if(nk){var i2=await sb.from("children").insert({parent_id:uid,first_name:nk,kind:($("nkk")&&$("nkk").value)||"child"});if(i2.error)throw i2.error}
-  setSheet("");toast("Settings saved");await load()}
+  var pf=v("pf1")||null,pl=v("pl1")||null;var pu=await sb.from("profiles_private").upsert({parent_id:uid,first_name:pf,last_name:pl});if(pu.error)throw pu.error;
+  await load();profilePage("Saved.");flash('[data-a="saveprofile"]')}
  else if(a==="newplan"){if(!contacts.length)await loadContacts();planSheet()}
  else if(a==="mkcircle"){var cn=v("cn");if(!cn){E("ce","Give your circle a name.");return}
   var kw0=v("kw"),kd0=["kd1","kd2","kd3"].map(v).filter(Boolean);
@@ -485,8 +504,8 @@ async function act(b){
   var q=await sb.rpc("create_circle",{p_name:cn,p_ends:ED,p_color:pickN.color,p_emoji:pickN.emoji});if(q.error){E("ce",q.error.message);return}
   if(kw0){var kq=await sb.rpc("set_circle_keyword",{p_circle:q.data,p_secret:kw0,p_decoys:kd0});if(kq.error){await load();circlesSheet("Circle created, but the secret word was not saved ("+kq.error.message+"). Open the circle to try again.");return}}
   await load();circlesSheet("Circle created. Share the code so people can ask to join."+(kw0?" Tell them the secret word yourself.":""))}
- else if(a==="qd"){var el=$(b.dataset.t),n=+b.dataset.n;if(!n&&!b.dataset.keep)el.value="";else{var d=new Date();d.setDate(d.getDate()+n);el.value=fmtDate(d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()))}}
- else if(a==="cal"){var ci2=$(b.dataset.t+"_c");try{var cur=parseDate($(b.dataset.t).value);if(cur)ci2.value=cur;ci2.onchange=function(){if(ci2.value)$(b.dataset.t).value=fmtDate(ci2.value)};ci2.showPicker?ci2.showPicker():ci2.click()}catch(e2){ci2.click()}}
+ else if(a==="qd"){unflash();var el=$(b.dataset.t),n=+b.dataset.n;if(!n&&!b.dataset.keep)el.value="";else{var d=new Date();d.setDate(d.getDate()+n);el.value=fmtDate(d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()))}}
+ else if(a==="cal"){var ci2=$(b.dataset.t+"_c");try{var cur=parseDate($(b.dataset.t).value);if(cur)ci2.value=cur;ci2.onchange=function(){if(ci2.value){$(b.dataset.t).value=fmtDate(ci2.value);unflash()}};ci2.showPicker?ci2.showPicker():ci2.click()}catch(e2){ci2.click()}}
  else if(a==="pickword"){joinInfo.word=b.dataset.w;findSheet()}
  else if(a==="joinshow"){joinInfo.show=!joinInfo.show;findSheet()}
  else if(a==="togglenames"){var tc=circles.find(function(x){return x.circle_id===b.dataset.c}),tn=await sb.rpc("set_show_names",{p_circle:b.dataset.c,p_show:!(tc&&tc.show_names)});if(tn.error)throw tn.error;await load();circleSheet(b.dataset.c)}
@@ -529,7 +548,7 @@ async function act(b){
   var mo=await sb.rpc("make_organiser",{p_circle:b.dataset.c,p_parent:b.dataset.p});if(mo.error)throw mo.error;await loadRoster(b.dataset.c);circleSheet(b.dataset.c,on+" is now an organiser.")}
  else if(a==="saveend"){var ED2=null;if(v("ed")){ED2=parseDate(v("ed"));if(!ED2||ED2<todayStr()){E("ce3","Type the end date like 12 Oct or 12/10/2026, in the future.");return}}
   var se=await sb.rpc("set_circle_end",{p_circle:b.dataset.c,p_ends:ED2});if(se.error){E("ce3",se.error.message);return}
-  await load();await loadRoster(b.dataset.c);circleSheet(b.dataset.c,"End date saved.")}
+  await load();await loadRoster(b.dataset.c);circleSheet(b.dataset.c,"End date saved.");flash('[data-a="saveend"]')}
  else if(a==="savenick"){var nn=v("nn"),sn=nn?await sb.from("circle_nicknames").upsert({circle_id:b.dataset.c,parent_id:uid,nickname:nn}):await sb.from("circle_nicknames").delete().eq("circle_id",b.dataset.c).eq("parent_id",uid);
   if(sn.error)throw sn.error;await load();circleSheet(b.dataset.c,nn?"Saved. Only you see this name.":"Back to the circle name.");flash('[data-a="savenick"]')}
  else if(a==="hidetoggle"){var hp=b.dataset.p,isH=hiddenIds.indexOf(hp)>-1;

@@ -1,51 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#4CC9F0"/>
-      <stop offset="1" stop-color="#4361EE"/>
-    </linearGradient>
-    <linearGradient id="pin" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FF8A5B"/>
-      <stop offset="1" stop-color="#FF4D6D"/>
-    </linearGradient>
-    <clipPath id="inner"><circle cx="256" cy="225" r="86"/></clipPath>
-  </defs>
-  <rect width="512" height="512" fill="url(#bg)"/>
-  <!-- dots: big, small, overlapping -->
-  <circle cx="70" cy="90" r="92" fill="#FFD166" opacity=".85"/>
-  <circle cx="150" cy="40" r="46" fill="#FF8FAB" opacity=".8"/>
-  <circle cx="440" cy="70" r="78" fill="#B8F2A5" opacity=".8"/>
-  <circle cx="392" cy="150" r="40" fill="#7B2CBF" opacity=".55"/>
-  <circle cx="486" cy="236" r="52" fill="#FF8FAB" opacity=".8"/>
-  <circle cx="30" cy="268" r="56" fill="#2EC4B6" opacity=".7"/>
-  <circle cx="92" cy="196" r="22" fill="#fff" opacity=".8"/>
-  <circle cx="84" cy="440" r="84" fill="#B8F2A5" opacity=".8"/>
-  <circle cx="160" cy="470" r="38" fill="#FFD166" opacity=".9"/>
-  <circle cx="448" cy="440" r="90" fill="#FF8FAB" opacity=".75"/>
-  <circle cx="380" cy="486" r="34" fill="#FFD166" opacity=".9"/>
-  <circle cx="486" cy="352" r="30" fill="#2EC4B6" opacity=".75"/>
-  <circle cx="330" cy="40" r="26" fill="#FFD166" opacity=".9"/>
-  <circle cx="214" cy="64" r="14" fill="#fff" opacity=".85"/>
-  <circle cx="300" cy="86" r="10" fill="#B8F2A5"/>
-  <circle cx="58" cy="350" r="15" fill="#fff" opacity=".85"/>
-  <circle cx="436" cy="296" r="12" fill="#fff" opacity=".85"/>
-  <circle cx="26" cy="168" r="11" fill="#FF8FAB"/>
-  <circle cx="246" cy="486" r="13" fill="#fff" opacity=".85"/>
-  <circle cx="320" cy="462" r="9" fill="#FF8FAB"/>
-  <!-- ground shadow -->
-  <ellipse cx="256" cy="414" rx="62" ry="12" fill="#1B2B7A" opacity=".28"/>
-  <!-- pin -->
-  <path d="M256 408 C256 408 134 306 134 225 A122 122 0 1 1 378 225 C378 306 256 408 256 408Z" fill="url(#pin)"/>
-  <circle cx="256" cy="225" r="94" fill="#fff"/>
-  <!-- three people -->
-  <g clip-path="url(#inner)">
-    <ellipse cx="204" cy="318" rx="46" ry="62" fill="#FFD166"/>
-    <ellipse cx="308" cy="318" rx="46" ry="62" fill="#2EC4B6"/>
-    <ellipse cx="256" cy="326" rx="56" ry="76" fill="#7B2CBF"/>
-  </g>
-  <circle cx="204" cy="238" r="20" fill="#FFD166"/>
-  <circle cx="308" cy="238" r="20" fill="#2EC4B6"/>
-  <circle cx="256" cy="212" r="25" fill="#7B2CBF"/>
-  <!-- smiles -->
-  <path d="M246 218 Q256 228 266 218" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2B3FA8"/><stop offset="1" stop-color="#7B2CBF"/></linearGradient><clipPath id="L"><circle cx="318" cy="256" r="124"/></clipPath></defs>
+<rect width="512" height="512" rx="112" fill="url(#g)"/>
+<circle cx="194" cy="256" r="124" fill="#FF5D8F"/><circle cx="318" cy="256" r="124" fill="#2EC4B6"/>
+<circle cx="194" cy="256" r="124" fill="#FFC83D" clip-path="url(#L)"/>
+<circle cx="76" cy="84" r="16" fill="#FFC83D"/><circle cx="446" cy="96" r="10" fill="#fff" opacity=".85"/><circle cx="440" cy="432" r="22" fill="#FF8FAB"/><circle cx="82" cy="424" r="9" fill="#2EC4B6"/></svg>

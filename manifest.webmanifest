@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "Pop-by",
-  "short_name": "Pop-by",
+  "name": "PopRound",
+  "short_name": "PopRound",
   "description": "Share where you'll be. Parents in your circle drop in if they're free.",
   "start_url": "./",
   "scope": "./",

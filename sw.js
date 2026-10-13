@@ -1,6 +1,6 @@
-// Pop-by service worker: lets the app install and open offline (the shell only).
+// PopRound service worker: lets the app install and open offline (the shell only).
 // Network first, so new versions show up as soon as you're online. Data calls to Supabase are never cached.
-const CACHE = "popby-v2";
+const CACHE = "popround-v4";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon.svg"];
 
 self.addEventListener("install", (e) => {
@@ -20,7 +20,7 @@ self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET" || new URL(req.url).origin !== location.origin) return;
   e.respondWith(
-    fetch(req)
+    fetch(req, { cache: "no-cache" })
       .then((res) => {
         const copy = res.clone();
         caches.open(CACHE).then((c) => c.put(req, copy));
@@ -34,11 +34,11 @@ self.addEventListener("fetch", (e) => {
 self.addEventListener("push", (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (_) {}
-  e.waitUntil(self.registration.showNotification(d.title || "Pop-by", {
-    body: d.body || "Open Pop-by to see what's new.",
+  e.waitUntil(self.registration.showNotification(d.title || "PopRound", {
+    body: d.body || "Open PopRound to see what's new.",
     icon: "icon-192.png",
     badge: "icon-192.png",
-    tag: d.tag || "popby",
+    tag: d.tag || "popround",
     renotify: true,
   }));
 });

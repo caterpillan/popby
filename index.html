@@ -29,13 +29,13 @@ h1{font-size:30px;font-weight:800;margin:4px 0;letter-spacing:-.02em;line-height
 .chip{flex:none;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 14px;font:inherit;font-weight:600;font-size:14px;cursor:pointer}
 .chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;margin-bottom:12px}
-.card.party{border-left:8px solid var(--sun)}.card.now{border-left:8px solid var(--leaf)}.card.old{opacity:.55}
+.card.party{border-left:8px solid var(--sun)}.card.now{border-left:8px solid var(--leaf)}.card.old{opacity:.55}.card.canc{border-left:8px solid var(--coral)}
 .top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
 .who{font-size:13px;color:var(--mute);font-weight:600}
 .title{font-size:20px;font-weight:800;margin:2px 0 6px;line-height:1.15}
 .when{font-weight:600}.where{color:var(--mute);font-size:14px}
 .tag{font-size:12px;font-weight:700;border-radius:8px;padding:3px 8px;background:var(--leafbg);color:var(--leaf);white-space:nowrap}
-.tag.p{background:#FFF0C2;color:#7A5600}
+.tag.x{background:#FBE0DC;color:#B3382C}.tag.p{background:#FFF0C2;color:#7A5600}
 .note{margin:10px 0 0;font-size:15px}
 .row{display:flex;align-items:center;justify-content:space-between;margin-top:14px;gap:8px}
 .going{font-size:13px;color:var(--mute)}
@@ -192,6 +192,7 @@ async function start(){
   sb.channel("pop").on("postgres_changes",{event:"*",schema:"public"},function(p){
    if(p.table==="plans"&&p.eventType==="INSERT"&&p.new.host_id!==uid)toastFor=p.new.id;
    if(p.table==="plans"&&p.eventType==="UPDATE"&&p.new.host_id!==uid&&p.new.edited_at&&Date.now()-new Date(p.new.edited_at)<20000){toastFor=p.new.id;toastKind="Updated"}
+   if(p.table==="plans"&&p.eventType==="UPDATE"&&p.new.host_id!==uid&&p.new.cancelled_at&&Date.now()-new Date(p.new.cancelled_at)<20000){toastFor=p.new.id;toastKind="Cancelled"}
    clearTimeout(timer);timer=setTimeout(load,400)}).subscribe();
  }
 }
@@ -201,7 +202,7 @@ async function load(){
   sb.from("parents").select("*").eq("id",uid).maybeSingle(),
   sb.from("children").select("*").eq("parent_id",uid),
   sb.from("circle_members").select("circle_id,role,status,show_names,circles!circle_id(name,invite_code,ends_on,color,emoji)").eq("parent_id",uid),
-  sb.from("plans").select("*,host:parents!host_id(display_name),child:children!child_id(first_name),circle:circles!circle_id(name)").gte("ends_at",start.toISOString()).order("starts_at"),
+  sb.from("plans").select("*,host:parents!host_id(display_name),orig:parents!orig_host_id(display_name),child:children!child_id(first_name),circle:circles!circle_id(name)").gte("ends_at",start.toISOString()).order("starts_at"),
   sb.from("plan_replies").select("plan_id,parent_id,status,parents!parent_id(display_name)"),
   sb.rpc("pending_requests"),
   sb.from("circle_nicknames").select("circle_id,nickname"),
@@ -422,12 +423,21 @@ function editSheet(pid){
  +'<button class="big" data-a="saveplan" data-p="'+esc(pid)+'">Save and notify</button><button class="link" data-a="close">Cancel</button>');
  endHint();fillHideList(p.circle_id,planHides);
 }
+function cancelSheet(pid){
+ var p=plans.find(function(x){return x.id===pid})||{title:"this activity"},c=counts[pid]||{},n=(c.going||0)+(c.maybe||0);
+ setSheet('<h2>Cancel "'+esc(p.title)+'"?</h2><p class="hint">'+n+(n===1?' person has':' people have')+' said they are coming or might. What should happen?</p>'
+  +'<button class="big" data-a="cancelplan" data-k="1" data-p="'+esc(pid)+'">Let others keep it going</button>'
+  +'<p class="hint">It stays on the list as "Organiser cancelled" for an hour. Everyone who replied gets an alert, and any of them can take it over. If nobody does, it ends.</p>'
+  +'<button class="big" style="background:transparent;color:var(--ink);border:2px solid var(--ink)" data-a="cancelplan" data-k="0" data-p="'+esc(pid)+'">Cancel for everyone</button>'
+  +'<p class="hint">Everyone who replied gets an alert that it is cancelled.</p>'
+  +'<button class="link" data-a="close">Back</button>');
+}
 function draw(){
  if(!me)return;
  var ap=approved(),ids=ap.map(function(c){return c.circle_id}),now=new Date();
   var sc=sortedCircles(),rl=$("crow")?$("crow").scrollLeft:0,hn=plans.filter(function(p){return ids.indexOf(p.circle_id)>-1&&(sel==="all"||p.circle_id===sel)&&dismissed.indexOf(p.id)>-1}).length;
  var chips='<button class="chip" data-a="sel" data-c="all" aria-pressed="'+(sel==="all")+'">All circles</button>'+ap.map(function(c){return '<button class="chip" data-a="sel" data-c="'+esc(c.circle_id)+'" aria-pressed="'+(sel===c.circle_id)+'">'+esc(cname(c.circle_id,c.circles.name))+'</button>'}).join("");
- var list=plans.filter(function(p){return ids.indexOf(p.circle_id)>-1&&(sel==="all"||p.circle_id===sel)&&dismissed.indexOf(p.id)<0});
+ var list=plans.filter(function(p){return ids.indexOf(p.circle_id)>-1&&(sel==="all"||p.circle_id===sel)&&dismissed.indexOf(p.id)<0&&(!p.cancelled_at||p.host_id===uid||replies.some(function(r){return r.plan_id===p.id&&r.parent_id===uid&&(r.status==="going"||r.status==="maybe")}))});
  var cards=list.map(function(p){
   var party=p.kind==="party",s=new Date(p.starts_at),e=new Date(p.ends_at);
   var rs=replies.filter(function(r){return r.plan_id===p.id}),myR=(rs.find(function(r){return r.parent_id===uid})||{}).status;
@@ -437,11 +447,12 @@ function draw(){
   var nl=function(a,tot){var n=fn(a),x=tot-a.length;return n?': '+esc(n)+(x>0?' +'+x:''):''};
   var cnt=(ng?'<b>'+ng+' going</b>'+nl(gs,ng):'')+(ng&&nm?' · ':'')+(nm?nm+' might pop by'+nl(ms,nm):'')||'No replies yet';
   var isNow=s<=now&&now<=e,ended=e<now,host=p.host_id===uid;
+  var canc=!!p.cancelled_at,hand=canc&&!!p.handover_until&&new Date(p.handover_until)>now,orig=(p.orig&&p.orig.display_name)||"The organiser";
   var l1=party?"Maybe":"I might pop by",l2=party?"Going":"See you there";
-  return '<article class="card '+(party?"party":isNow?"now":"")+(ended?" old":"")+'"><div class="top"><div><div class="who">'+esc(p.host&&p.host.display_name)+' · '+esc(cname(p.circle_id,p.circle&&p.circle.name))+'</div><div class="title">'+esc(p.title)+'</div></div><span class="tag '+(party?"p":"")+'">'+(ended?"Ended":party?"RSVP":isNow?"Happening now":"Drop-in")+'</span></div>'+(p.created_at?'<div class="where" style="font-size:12px">Sent '+esc(sentAt(p.created_at))+'</div>':'')+(p.edited_at&&!ended?'<div class="where" style="color:var(--coral);font-weight:700">Updated '+esc(ago(p.edited_at))+'</div>':'')
+  return '<article class="card '+(party?"party":isNow?"now":"")+(hand?" canc":"")+(ended||(canc&&!hand)?" old":"")+'"><div class="top"><div><div class="who">'+esc(p.host&&p.host.display_name)+' · '+esc(cname(p.circle_id,p.circle&&p.circle.name))+'</div><div class="title">'+esc(p.title)+'</div></div><span class="tag '+(party?"p":"")+(canc?" x":"")+'">'+(canc?(hand?"Organiser cancelled":"Cancelled"):ended?"Ended":party?"RSVP":isNow?"Happening now":"Drop-in")+'</span></div>'+(p.created_at?'<div class="where" style="font-size:12px">Sent '+esc(sentAt(p.created_at))+'</div>':'')+(canc?'<div class="where" style="color:var(--coral);font-weight:700">'+(host?'You cancelled this.':esc(orig)+' cancelled this.')+(hand?(host?' People who said they were coming can keep it going until ':' You can keep it going until ')+tm(new Date(p.handover_until))+'.':'')+'</div>':'')+(!canc&&p.orig_host_id&&p.orig_host_id!==p.host_id?'<div class="where" style="font-size:12px">Originally planned by '+esc(orig)+'</div>':'')+(p.edited_at&&!ended&&!canc?'<div class="where" style="color:var(--coral);font-weight:700">Updated '+esc(ago(p.edited_at))+'</div>':'')
   +'<div class="when">'+esc(dayLabel(s))+', '+(p.open_ended?'from '+tm(s):tm(s)+'–'+tm(e)+(e.toDateString()!==s.toDateString()?' ('+esc(e.toLocaleDateString(undefined,{weekday:"short"}))+')':''))+((p.who_names||(p.child&&p.child.first_name))?' · '+esc(p.who_names||p.child.first_name):'')+'</div><div class="where">'+esc(p.place_name)+'</div>'+(p.note?'<p class="note">'+esc(p.note)+'</p>':'')
-  +'<div class="row"><span class="going">'+cnt+'</span>'+(host?'<div><button class="b sm" data-a="editplan" data-p="'+esc(p.id)+'">Edit</button> <button class="b sm del" data-a="delplan" data-p="'+esc(p.id)+'">Delete</button></div>':'')+'</div>'
-  +(host?'':myR?'<div class="mine"><b>\u2713 '+(myR==="going"?(party?"You\'re going":"You\'re coming"):(party?"You said maybe":"You might pop by"))+'</b><button class="b sm" data-a="replysheet" data-p="'+esc(p.id)+'">Change</button></div>':'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px"><button class="b '+(myR==="maybe"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="maybe" data-p="'+esc(p.id)+'">'+l1+'</button><button class="b '+(myR==="going"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="going" data-p="'+esc(p.id)+'">'+l2+'</button><button class="b" style="font-size:13px;padding:9px 4px" data-a="dismiss" data-p="'+esc(p.id)+'">Not for me</button></div>')+(host||!myR||ended?'':'<div class="where" style="margin-top:10px">'+(reminders[p.id]?'🔔 '+(new Date(reminders[p.id])>now?'Leave-by alert at ':'Leave-by alert was at ')+tm(new Date(reminders[p.id]))+(new Date(reminders[p.id])>now?' <button class="b sm" data-a="leavesheet" data-p="'+esc(p.id)+'">Change</button>':''):'<button class="b sm" data-a="leavesheet" data-p="'+esc(p.id)+'">🔔 Set a leave-by alert</button>')+'</div>')+(host?'':'<button class="link" style="font-size:13px;margin-top:8px" data-a="safety" data-p="'+esc(p.id)+'">Report or block</button>')+'</article>'}).join("");
+  +'<div class="row"><span class="going">'+cnt+'</span>'+(host?(canc?'<div>'+(ended?'':'<button class="b sm" data-a="undocancel" data-p="'+esc(p.id)+'">Undo</button> ')+'<button class="b sm del" data-a="delplan" data-p="'+esc(p.id)+'">Delete</button></div>':'<div><button class="b sm" data-a="editplan" data-p="'+esc(p.id)+'">Edit</button> <button class="b sm del" data-a="delplan" data-p="'+esc(p.id)+'">Delete</button></div>'):'')+'</div>'
+  +(canc?(host?'':hand&&myR?'<button class="big" style="margin-top:10px" data-a="keepplan" data-p="'+esc(p.id)+'">Keep it going</button>':'<button class="link" style="font-size:13px;margin-top:8px" data-a="dismiss" data-p="'+esc(p.id)+'">Hide this</button>'):host?'':myR?'<div class="mine"><b>\u2713 '+(myR==="going"?(party?"You\'re going":"You\'re coming"):(party?"You said maybe":"You might pop by"))+'</b><button class="b sm" data-a="replysheet" data-p="'+esc(p.id)+'">Change</button></div>':'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px"><button class="b '+(myR==="maybe"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="maybe" data-p="'+esc(p.id)+'">'+l1+'</button><button class="b '+(myR==="going"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="going" data-p="'+esc(p.id)+'">'+l2+'</button><button class="b" style="font-size:13px;padding:9px 4px" data-a="dismiss" data-p="'+esc(p.id)+'">Not for me</button></div>')+(host||!myR||ended||canc?'':'<div class="where" style="margin-top:10px">'+(reminders[p.id]?'🔔 '+(new Date(reminders[p.id])>now?'Leave-by alert at ':'Leave-by alert was at ')+tm(new Date(reminders[p.id]))+(new Date(reminders[p.id])>now?' <button class="b sm" data-a="leavesheet" data-p="'+esc(p.id)+'">Change</button>':''):'<button class="b sm" data-a="leavesheet" data-p="'+esc(p.id)+'">🔔 Set a leave-by alert</button>')+'</div>')+(host||canc?'':'<button class="link" style="font-size:13px;margin-top:8px" data-a="safety" data-p="'+esc(p.id)+'">Report or block</button>')+'</article>'}).join("");
  $("app").innerHTML='<div class="head"><button class="rbtn" data-a="circles" aria-label="Circles'+(pending.length?', '+pending.length+' waiting for approval':'')+'"><img src="icon.svg" alt="" style="width:100%;height:100%;border-radius:50%;display:block">'+(pending.length?'<span class="cnt">'+pending.length+'</span>':'')+'</button><div class="brand"><h1>PopRound</h1></div><button class="rbtn" data-a="profile" aria-label="Settings"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div><p class="sub">Hi '+esc(me.display_name.replace(/\.$/,''))+'. No invites, no pressure. Just: we\'ll be here.</p>'
   +(ap.length?circleRow(sc,now):'')
   +(ap.length&&sel!=="all"?'<p class="hint" style="margin:0 0 8px">Showing <b>'+esc(cname(sel,(ap.find(function(c){return c.circle_id===sel})||{circles:{}}).circles.name))+'</b>. Tap All to see everything.</p>':'')
@@ -618,7 +629,14 @@ async function act(b){
   var sh=await sb.rpc("set_plan_hidden",{p_plan:b.dataset.p,p_hide:hidePicked()});if(sh.error)throw sh.error;
   var up=await sb.from("plans").update({title:et,place_name:v("ew")||"Location to be shared",starts_at:s2.toISOString(),ends_at:e2.toISOString(),open_ended:bt2.open,note:v("en")||null,who_names:wq.names,child_id:wq.childId}).eq("id",b.dataset.p);
   if(up.error)throw up.error;setSheet("");toast("Saved. Your circle has been notified.");await load()}
- else if(a==="delplan"){if(confirm("Delete this activity for everyone?")){var dp=await sb.from("plans").delete().eq("id",b.dataset.p);if(dp.error)throw dp.error;await load()}}
+ else if(a==="delplan"){var dpid=b.dataset.p,dpl=plans.find(function(x){return x.id===dpid})||{},dcn=counts[dpid]||{};
+  if(dpl.cancelled_at){if(confirm("Remove this cancelled activity for everyone?")){var d1=await sb.from("plans").delete().eq("id",dpid);if(d1.error)throw d1.error;await load()}}
+  else if((dcn.going||0)+(dcn.maybe||0)>0){cancelSheet(dpid)}
+  else if(confirm("Delete this activity for everyone?")){var dp=await sb.from("plans").delete().eq("id",dpid);if(dp.error)throw dp.error;await load()}}
+ else if(a==="cancelplan"){var cr=await sb.rpc("cancel_plan",{p_plan:b.dataset.p,p_keep:b.dataset.k==="1"});if(cr.error)throw cr.error;setSheet("");
+  toast(cr.data==="handover"?"Cancelled. People who were coming have been told, and can keep it going for an hour.":cr.data==="cancelled"?"Cancelled. Everyone who replied has been told.":"Deleted.");await load()}
+ else if(a==="keepplan"){var kr=await sb.rpc("keep_plan_going",{p_plan:b.dataset.p});if(kr.error)throw kr.error;toast("It's yours now. Tap Edit to change anything. The others have been told.");await load()}
+ else if(a==="undocancel"){var ur2=await sb.rpc("restore_plan",{p_plan:b.dataset.p});if(ur2.error)throw ur2.error;toast("Back on. People who replied have been told.");await load()}
  }catch(e){toast("That didn't save: "+(e.message||"error"))}
 }
 document.addEventListener("click",function(e){var b=e.target.closest("[data-a]");if(b)act(b)});

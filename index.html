@@ -325,6 +325,21 @@ async function pushBox(){
  var ios=/iphone|ipad|ipod/i.test(navigator.userAgent);
  var msg={on:"On for this phone. You'll get an alert when someone in your circles shares or changes an activity.",off:"Get an alert when someone in your circles shares or changes an activity, even when the app is closed.",denied:"Notifications are blocked. Turn them on in your phone's settings for this app, then come back.",unsupported:ios?"On iPhone, add PopRound to your Home Screen first (Share > Add to Home Screen), then open it from there to turn this on.":"This browser can't do notifications."}[st.s];
  box.innerHTML='<p class="hint">'+esc(msg)+'</p>'+(st.s==="on"?'<button class="b sm" data-a="pushoff">Turn off</button>':st.s==="off"?'<button class="b sm on" data-a="pushon">Turn on notifications</button>':'')}
+async function doPushOn(){
+ try{var perm=await Notification.requestPermission();if(perm!=="granted")return false;
+  var reg=await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription()||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(VAPID_KEY)});
+  var r=await sb.rpc("save_push_sub",{p_endpoint:sub.endpoint,p_p256dh:bufb64u(sub.getKey("p256dh")),p_auth:bufb64u(sub.getKey("auth"))});
+  return !r.error}catch(e){return false}}
+async function notifyIntro(){
+ var st=await pushState(),ios=/iphone|ipad|ipod/i.test(navigator.userAgent);
+ if(st.s==="on"||st.s==="denied")return;
+ var head='<h2>One more thing: turn on alerts</h2><p>PopRound can buzz your phone when a friend shares a plan, changes one, or when it\'s time to leave, <b>even when the app is closed</b>. Without alerts you only see updates when you open the app.</p>';
+ if(st.s==="off"){
+  setSheet(head+'<button class="big" data-a="introon">Turn on notifications</button><button class="link" data-a="close">Maybe later</button><p class="hint">Your phone will ask you to allow it. You can change this any time in Settings > Profile.</p>');
+ }else if(ios){
+  setSheet(head+'<p class="hint">On iPhone, alerts only work once PopRound is on your Home Screen:</p><ol style="margin:0 0 12px;padding-left:20px;font-size:15px"><li>Tap the Share button in Safari.</li><li>Choose <b>Add to Home Screen</b>.</li><li>Open PopRound from your Home Screen.</li><li>Go to Settings > Profile and tap <b>Turn on notifications</b>.</li></ol><button class="big" data-a="close">Got it</button>');
+ }
+}
 function whoBoxes(selected){
  var first=(me.display_name||"Me").split(" ")[0];
  var all=[{n:first+" (me)",v:first,id:""}].concat(kids.map(function(k){return{n:k.first_name,v:k.first_name,id:k.id}}));
@@ -487,7 +502,7 @@ async function act(b){
   if(!n||!k.length){E("se","Enter a username and at least one first name.");return}
   var r1=await sb.from("parents").upsert({id:uid,display_name:n});if(r1.error)throw r1.error;
   var r2=await sb.from("children").insert(k.map(function(x){return{parent_id:uid,first_name:x,kind:"child"}}));if(r2.error)throw r2.error;
-  setSheet("");await load()}
+  setSheet("");await load();await notifyIntro()}
  else if(a==="star"){var sid=b.dataset.c,cur2=!!stars[sid];var sr2=await sb.from("circle_prefs").upsert({circle_id:sid,parent_id:uid,starred:!cur2});if(sr2.error)throw sr2.error;if(cur2)delete stars[sid];else stars[sid]=true;draw();if(document.querySelector('#sheet [data-a="togglenames"]'))circleSheet(sid)}
  else if(a==="pickcolor"||a==="pickemoji"){var g=b.dataset.g,pk=g==="n"?pickN:pickE;if(a==="pickcolor")pk.color=b.dataset.v;else pk.emoji=b.dataset.v;unflash();
   [].forEach.call(document.querySelectorAll('#sheet [data-g="'+g+'"]'),function(x){if(x.dataset.a===a)x.setAttribute("aria-pressed",String(x.dataset.v===b.dataset.v))});
@@ -614,6 +629,7 @@ async function act(b){
   toast("Hidden from your home screen. Undo in Settings.");await load()}
  else if(a==="undismiss"){var ur=await sb.from("plan_dismissals").delete().eq("plan_id",b.dataset.p).eq("parent_id",uid);if(ur.error)throw ur.error;
   await load();if(b.dataset.h)hiddenSheet("Brought back.");else profileSheet("Shown again.")}
+ else if(a==="introon"){var okp=await doPushOn();setSheet("");toast(okp?"Notifications are on. You're all set.":"No problem. You can turn them on later in Settings > Profile.")}
  else if(a==="pushon"){
   var perm=await Notification.requestPermission();if(perm!=="granted"){await pushBox();return}
   var reg=await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription()||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(VAPID_KEY)});

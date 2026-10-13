@@ -20,6 +20,11 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:'Bricolage Grote
 .head{display:flex;justify-content:space-between;align-items:center}
 h1{font-size:30px;font-weight:800;margin:4px 0;letter-spacing:-.02em;line-height:1.1}
 .sub{color:var(--mute);margin:0 0 14px;font-size:14px}
+.hero{text-align:center;padding:12px 4px 18px}.hero img{border-radius:18px}.hero h1{font-size:34px;margin:8px 0 6px}
+.tagline{font-size:19px;font-weight:700;line-height:1.25;margin:0 0 10px}.hero .sub{font-size:15px;margin:0}
+.why{padding:6px 4px 20px}.why h2{font-size:18px;margin:6px 0 12px}
+.wi{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}.wi span{font-size:22px;line-height:1.2}.wi p{margin:0;font-size:15px}
+.fine{color:var(--mute);font-size:13px;margin:14px 0 0}
 .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px}
 .chip{flex:none;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 14px;font:inherit;font-weight:600;font-size:14px;cursor:pointer}
 .chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
@@ -169,7 +174,15 @@ if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(
 
 function authView(mode){
  mode=mode||"in";setSheet("");
- $("app").innerHTML='<h1>PopRound</h1><p class="sub">Parents only. No invites, no pressure. Just: we\'ll be here.</p><div class="card"><label for="em">Email</label><input id="em" type="email" autocomplete="email"><label for="pw">Password</label><input id="pw" type="password" autocomplete="'+(mode==="in"?"current-password":"new-password")+'" minlength="6"><div class="err" id="ae"></div><button class="big" data-a="'+(mode==="in"?"signin":"signup")+'">'+(mode==="in"?"Sign in":"Create account")+'</button><button class="link" data-a="authmode" data-m="'+(mode==="in"?"up":"in")+'">'+(mode==="in"?"New here? Create an account":"I already have an account")+'</button></div>';
+ $("app").innerHTML='<div class="hero"><img src="icon.svg" alt="" width="72" height="72"><h1>PopRound</h1><p class="tagline">Tell your friends where you\'ll be. They pop round if they\'re free.</p><p class="sub">The park at 3, five-a-side after work, the match on Saturday, a drink at the pub, a birthday at the soft play. Share the plan in seconds and let your friends join you. No group-chat scrolling, no awkward invites, no pressure.</p></div><div class="card"><label for="em">Email</label><input id="em" type="email" autocomplete="email"><label for="pw">Password</label><input id="pw" type="password" autocomplete="'+(mode==="in"?"current-password":"new-password")+'" minlength="6"><div class="err" id="ae"></div><button class="big" data-a="'+(mode==="in"?"signin":"signup")+'">'+(mode==="in"?"Sign in":"Create account")+'</button><button class="link" data-a="authmode" data-m="'+(mode==="in"?"up":"in")+'">'+(mode==="in"?"New here? Create an account":"I already have an account")+'</button></div>'+welcomeInfo();
+}
+function welcomeInfo(){
+ return '<div class="why"><h2>Why people like PopRound</h2>'
+  +'<div class="wi"><span>\uD83D\uDCCD</span><p><b>Share a plan in seconds.</b> Say where, and from when until when, whether it\'s the playground, the game or the bar. Your circle sees it straight away.</p></div>'
+  +'<div class="wi"><span>\uD83D\uDD12</span><p><b>Private by design.</b> Make a circle for your class, your team, your street or your mates. Only the people in it see anything, and a secret word keeps strangers out.</p></div>'
+  +'<div class="wi"><span>\uD83D\uDE4C</span><p><b>No pressure.</b> \u201CI might pop by\u201D is enough. Say \u201CNot for me\u201D and nobody is told.</p></div>'
+  +'<div class="wi"><span>\uD83D\uDD14</span><p><b>Gentle nudges.</b> Get an alert when a friend posts, and a reminder when it\'s time to leave.</p></div>'
+  +'<p class="fine">Free to use. We keep what we know about you to a minimum and never sell it. Tip: add PopRound to your Home Screen so it opens like any other app.</p></div>';
 }
 async function start(){
  await load();
@@ -211,7 +224,7 @@ function approved(){return circles.filter(function(c){return c.status==="approve
 async function loadContacts(){var pc=await sb.from("parents").select("id,display_name").neq("id",uid).order("display_name");var hh=await sb.from("hidden_from").select("hidden_id");contacts=pc.data||[];hiddenIds=(hh.data||[]).map(function(x){return x.hidden_id})}
 async function loadRoster(cid){var r=await sb.rpc("circle_roster",{p_circle:cid});if(r.error)throw r.error;roster=r.data||[]}
 function setupSheet(){
- setSheet('<h2>Welcome to PopRound</h2><p class="hint">Only people in circles you join will see this.</p><label for="sn">Your username (shown to people in your circles)</label><input id="sn" placeholder="Priya S."><label for="sk">Who is in your family? First names, comma separated</label><input id="sk" placeholder="Aarav, Mia"><p class="hint">You can add more people later in Settings.</p><div class="err" id="se"></div><button class="big" data-a="saveme">Continue</button>');
+ setSheet('<h2>Welcome to PopRound</h2><p class="hint">Only people in circles you join will see this.</p><label for="sn">Your username (shown to people in your circles)</label><input id="sn" placeholder="Priya S."><label for="sk">Who usually comes along? First names, comma separated</label><input id="sk" placeholder="Aarav, Mia"><p class="hint">Just you? Add your own first name. You can add more people later in Settings.</p><div class="err" id="se"></div><button class="big" data-a="saveme">Continue</button>');
 }
 async function fillHideList(cid,checked){
  try{await loadRoster(cid)}catch(e){}
@@ -313,7 +326,7 @@ async function pushBox(){
 function whoBoxes(selected){
  var first=(me.display_name||"Me").split(" ")[0];
  var all=[{n:first+" (me)",v:first,id:""}].concat(kids.map(function(k){return{n:k.first_name,v:k.first_name,id:k.id}}));
- return '<label>Who is going from your family?</label><div class="card" style="padding:8px 12px">'+all.map(function(x,i){
+ return '<label>Who is going?</label><div class="card" style="padding:8px 12px">'+all.map(function(x,i){
   var on=selected?selected.indexOf(x.v)>-1:true;
   return '<label style="display:flex;align-items:center;gap:10px;margin:6px 0;font-weight:600"><input type="checkbox" style="width:22px;height:22px;flex:none" data-who="'+esc(x.v)+'" data-wid="'+esc(x.id)+'"'+(on?' checked':'')+'><span>'+esc(x.n)+'</span></label>'}).join("")+'</div>'}
 function whoPicked(){var ch=[].slice.call(document.querySelectorAll("#sheet [data-who]:checked"));
@@ -387,9 +400,9 @@ function profilePage(msg){
  +'<label for="pf1">First name (optional)</label><input id="pf1" maxlength="40" autocomplete="given-name" value="'+esc(pp.first_name||"")+'">'
  +'<label for="pl1">Last name (optional)</label><input id="pl1" maxlength="40" autocomplete="family-name" value="'+esc(pp.last_name||"")+'">'
  +'<p class="hint">Your first and last name are private. Only you can see them. Other people see your username.</p>'
- +'<label>Your family</label>'
- +kids.map(function(k){return '<div class="req" style="gap:6px"><input data-kid="'+esc(k.id)+'" value="'+esc(k.first_name)+'" aria-label="Family member first name" style="flex:1;min-width:0">'+'<button class="b sm del" data-a="rmkid" data-k="'+esc(k.id)+'">Remove</button></div>'}).join("")
- +'<label for="nk">Add a family member</label><div class="req" style="gap:6px"><input id="nk" placeholder="First name" style="flex:1;min-width:0"></div>'
+ +'<label>People you bring along</label>'
+ +kids.map(function(k){return '<div class="req" style="gap:6px"><input data-kid="'+esc(k.id)+'" value="'+esc(k.first_name)+'" aria-label="First name" style="flex:1;min-width:0">'+'<button class="b sm del" data-a="rmkid" data-k="'+esc(k.id)+'">Remove</button></div>'}).join("")
+ +'<label for="nk">Add someone</label><div class="req" style="gap:6px"><input id="nk" placeholder="First name" style="flex:1;min-width:0"></div>'
  +'<div class="err" id="pre">'+esc(msg||"")+'</div><button class="big" data-a="saveprofile">Save changes</button>');
 }
 function editSheet(pid){
@@ -459,7 +472,7 @@ async function act(b){
    else E("ae","Account created. Open the confirmation email we just sent, tap the link, then come back and sign in.")}}
  else if(a==="signout"){try{var ps=await pushState();if(ps.sub){await sb.rpc("drop_push_sub",{p_endpoint:ps.sub.endpoint});await ps.sub.unsubscribe()}}catch(e3){}await sb.auth.signOut();subscribed=false;sb.removeAllChannels()}
  else if(a==="saveme"){var n=v("sn"),k=v("sk").split(",").map(function(x){return x.trim()}).filter(Boolean);
-  if(!n||!k.length){E("se","Enter a username and at least one family member.");return}
+  if(!n||!k.length){E("se","Enter a username and at least one first name.");return}
   var r1=await sb.from("parents").upsert({id:uid,display_name:n});if(r1.error)throw r1.error;
   var r2=await sb.from("children").insert(k.map(function(x){return{parent_id:uid,first_name:x,kind:"child"}}));if(r2.error)throw r2.error;
   setSheet("");await load()}
@@ -482,8 +495,8 @@ async function act(b){
  else if(a==="removereply"){var rr2=await sb.from("plan_replies").delete().eq("plan_id",b.dataset.p).eq("parent_id",uid);if(rr2.error)throw rr2.error;setSheet("");toast("Reply taken back");await load()}
  else if(a==="profile"){await Promise.all([loadContacts(),loadBlocked()]);profileSheet()}
  else if(a==="profilepage"){profilePage()}
- else if(a==="rmkid"){if(kids.length<2){E("pre","Keep at least one family member. Add the new name first, then remove the old one.");return}
-  if(!confirm("Remove this family member? Activities already posted keep the name they were posted with."))return;
+ else if(a==="rmkid"){if(kids.length<2){E("pre","Keep at least one name. Add the new name first, then remove the old one.");return}
+  if(!confirm("Remove this name? Activities already posted keep the name they were posted with."))return;
   var rk=await sb.from("children").delete().eq("id",b.dataset.k);if(rk.error)throw rk.error;await load();profilePage()}
  else if(a==="saveprofile"){var nm=v("pn1");if(!nm){E("pre","Your name can't be empty.");return}
   var ins=document.querySelectorAll("#sheet [data-kid]");

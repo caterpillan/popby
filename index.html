@@ -238,7 +238,7 @@ function planSheet(){
  var ap=approved();
  setSheet('<h2>Share an activity</h2><label for="pk">Type</label><select id="pk"><option value="dropin">Drop-in (no reply needed)</option><option value="party">Party (RSVP)</option></select>'
  +whoBoxes()
- +'<label for="pt">What\'s the activity?</label><input id="pt" placeholder="Playground at Costco Park">'
+ +'<label for="pt">What\'s the activity?</label><input id="pt" placeholder="Playground">'
  +'<label for="pw">Where</label><input id="pw" placeholder="Meeting spot or address">'
  +'<div class="two"><div><label for="pf">From</label><input id="pf" type="text" inputmode="text" autocomplete="off" value="10:00 am" placeholder="e.g. 10am or 2:30pm"></div><div><label for="pe">Until (optional)</label><input id="pe" type="text" inputmode="text" autocomplete="off" value="" placeholder="Empty = until it ends"></div></div>'
  +'<label for="pd">Day</label><input id="pd" type="text" inputmode="text" autocomplete="off" placeholder="e.g. 12 Oct, 12/10 or tomorrow" value="'+fmtDate(todayStr())+'"><button type="button" class="b sm" data-a="cal" data-t="pd" style="margin-top:6px">Calendar</button><input type="date" id="pd_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none"><div style="display:flex;gap:6px;margin:8px 0"><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="0" data-keep="1">Today</button><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="1" data-keep="1">Tomorrow</button><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="2" data-keep="1">In 2 days</button></div>'

@@ -173,6 +173,19 @@ else{
 }
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(function(){});
 
+var ndaOk=false;
+function testingSheet(){
+ setSheet('<h2>Private testing version</h2><p>Thank you for helping us test PopRound. Before you create an account, please agree to this:</p>'
+  +'<ul style="margin:0 0 12px;padding-left:20px;font-size:15px">'
+  +'<li style="margin-bottom:8px">PopRound is a <b>private test</b>. It is not finished, and things may change, break or be reset.</li>'
+  +'<li style="margin-bottom:8px">Please <b>do not share the link</b>, screenshots or details of how it works with anyone without the developers\' knowledge and permission.</li>'
+  +'<li style="margin-bottom:8px">The idea, design and features are <b>confidential</b>. Please do not copy, recreate or pass them on.</li>'
+  +'<li>Any feedback or ideas you give us can be used by the developers to improve the app.</li></ul>'
+  +'<p class="hint">Want to bring a friend or family member along? Just ask us first.</p>'
+  +'<label style="display:flex;gap:10px;align-items:flex-start;font-weight:600;margin:12px 0"><input type="checkbox" id="nda" style="width:24px;height:24px;flex:none;margin:0"><span>I understand and agree</span></label>'
+  +'<div class="err" id="ne"></div>'
+  +'<button class="big" data-a="ndaaccept">Agree and create my account</button><button class="link" data-a="close">Cancel</button>');
+}
 function authView(mode){
  mode=mode||"in";setSheet("");
  $("app").innerHTML='<div class="hero"><img src="icon.svg" alt="" width="72" height="72"><h1>PopRound</h1><p class="tagline">Tell your friends where you\'ll be. They pop round if they\'re free.</p><p class="sub">The park at 3, five-a-side after work, the match on Saturday, a drink at the pub, a birthday at the soft play. Share the plan in seconds and let your friends join you. No group-chat scrolling, no awkward invites, no pressure.</p></div><div class="card"><label for="em">Email</label><input id="em" type="email" autocomplete="email"><label for="pw">Password</label><input id="pw" type="password" autocomplete="'+(mode==="in"?"current-password":"new-password")+'" minlength="6"><div class="err" id="ae"></div><button class="big" data-a="'+(mode==="in"?"signin":"signup")+'">'+(mode==="in"?"Sign in":"Create account")+'</button><button class="link" data-a="authmode" data-m="'+(mode==="in"?"up":"in")+'">'+(mode==="in"?"New here? Create an account":"I already have an account")+'</button></div>'+welcomeInfo();
@@ -485,9 +498,11 @@ async function act(b){
  try{
  if(a==="close")setSheet("");
  else if(a==="authmode")authView(b.dataset.m);
+ else if(a==="ndaaccept"){var ck=$("nda");if(!ck||!ck.checked){E("ne","Please tick the box to agree.");return}ndaOk=true;setSheet("");var sb2=document.querySelector('#app [data-a="signup"]');if(sb2)act(sb2)}
  else if(a==="signin"||a==="signup"){
   var em=v("em"),pw=v("pw");if(!em||pw.length<6){E("ae","Enter your email and a password of at least 6 characters.");return}
-  var r=a==="signin"?await sb.auth.signInWithPassword({email:em,password:pw}):await sb.auth.signUp({email:em,password:pw});
+  if(a==="signup"&&!ndaOk){testingSheet();return}
+  var r=a==="signin"?await sb.auth.signInWithPassword({email:em,password:pw}):await sb.auth.signUp({email:em,password:pw,options:{data:{testing_notice_accepted_at:new Date().toISOString(),testing_notice_version:"1"}}});
   if(r.error){var m=r.error.message||"",lm=m.toLowerCase();
    if(lm.indexOf("already")>-1&&lm.indexOf("registered")>-1)E("ae","That email already has an account. Tap Sign in below and use your password.");
    else if(lm.indexOf("rate limit")>-1||lm.indexOf("too many")>-1)E("ae","Too many tries just now. Wait a few minutes and try again. ("+m+")");

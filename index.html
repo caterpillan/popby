@@ -155,7 +155,7 @@ function dayLabel(d){return d.toDateString()===new Date().toDateString()?"Today"
 var COLORS=["#4361EE","#E4584A","#2EC4B6","#FFC83D","#7B2CBF","#FF8FAB","#1F8A5F","#F77F00"],EMOJIS=["⚽","🏀","🎂","🎈","🏫","🎒","🌳","🛝","🏠","🎨","🎵","🐶","🚲","🏊","🍕","🌈","⭐","🧸","🍎","🐢","👋","🌻","🚀","🎮"];
 var stars={},pickN={color:COLORS[0],emoji:"👋"},pickE={color:COLORS[0],emoji:"👋"},planHides=[];
 var sb,uid=null,me=null,kids=[],blocked=[],dismissed=[],safeT=null,circles=[],plans=[],replies=[],pending=[],sel="all",subscribed=false,toastFor=null,toastKind="New",timer=null;
-var nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null,counts={},reminders={},ckw=null,profPriv={};
+var pcs={},nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null,counts={},reminders={},ckw=null,profPriv={};
 function daysLeft(ds){var e=new Date(ds+"T00:00:00"),t=new Date();t.setHours(0,0,0,0);return Math.round((e-t)/864e5)}
 function longDate(ds){return new Date(ds+"T00:00:00").toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short",year:"numeric"})}
 function endLabel(ds){if(!ds)return "No end date";var n=daysLeft(ds);if(n<0)return "Ended";if(n===0)return "Ends today";if(n===1)return "Ends tomorrow";if(n<=14)return "Ends in "+n+" days";return "Ends "+new Date(ds+"T00:00:00").toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"})}
@@ -223,9 +223,11 @@ async function load(){
   sb.from("circle_prefs").select("circle_id,starred"),
   sb.rpc("reply_counts"),
   sb.from("leave_reminders").select("plan_id,remind_at"),
-  sb.from("profiles_private").select("first_name,last_name").eq("parent_id",uid).maybeSingle()]);
- var bad=r.find(function(x,i){return x.error&&i!==11});profPriv=(r[11]&&r[11].data)||{};if(bad){toast("Couldn't load: "+bad.error.message)}
+  sb.from("profiles_private").select("first_name,last_name").eq("parent_id",uid).maybeSingle(),
+  sb.from("plan_circles").select("plan_id,circle_id")]);
+ var bad=r.find(function(x,i){return x.error&&i!==11&&i!==12});profPriv=(r[11]&&r[11].data)||{};if(bad){toast("Couldn't load: "+bad.error.message)}
  me=r[0].data;kids=r[1].data||[];circles=r[2].data||[];plans=r[3].data||[];replies=r[4].data||[];pending=r[5].data||[];
+ pcs={};(r[12]&&r[12].data||[]).forEach(function(x){(pcs[x.plan_id]=pcs[x.plan_id]||[]).push(x.circle_id)});
  counts={};(r[9].data||[]).forEach(function(x){(counts[x.plan_id]=counts[x.plan_id]||{})[x.status]=x.n});
  reminders={};(r[10].data||[]).forEach(function(x){reminders[x.plan_id]=x.remind_at});
  stars={};(r[8].data||[]).forEach(function(x){if(x.starred)stars[x.circle_id]=true});
@@ -241,10 +243,15 @@ async function loadRoster(cid){var r=await sb.rpc("circle_roster",{p_circle:cid}
 function setupSheet(){
  setSheet('<h2>Welcome to PopRound</h2><p class="hint">Only people in circles you join will see this.</p><label for="sn">Your username (shown to people in your circles)</label><input id="sn" placeholder="Priya S."><label for="sk">Who usually comes along? First names, comma separated</label><input id="sk" placeholder="Aarav, Mia"><p class="hint">Just you? Add your own first name. You can add more people later in Settings.</p><div class="err" id="se"></div><button class="big" data-a="saveme">Continue</button>');
 }
-async function fillHideList(cid,checked){
- try{await loadRoster(cid)}catch(e){}
+function pcOf(p){var ids=approved().map(function(c){return c.circle_id});return (pcs[p.id]||[p.circle_id]).filter(function(c){return ids.indexOf(c)>-1})}
+function inSel(p){var l=pcOf(p);return l.length>0&&(sel==="all"||l.indexOf(sel)>-1)}
+function pickedCircles(){return [].slice.call(document.querySelectorAll("#sheet [data-pc]:checked")).map(function(x){return x.dataset.pc})}
+async function fillHideList(cids,checked){
+ if(typeof cids==="string")cids=[cids];
+ var all=[],seen={};
+ for(var i=0;i<cids.length;i++){try{var rr=await sb.rpc("circle_roster",{p_circle:cids[i]});(rr.data||[]).forEach(function(x){if(!seen[x.parent_id]){seen[x.parent_id]=1;all.push(x)}})}catch(e){}}
  var box=$("hidelist");if(!box)return;
- var ppl=roster.filter(function(r){return r.parent_id!==uid&&r.status==="approved"});
+ var ppl=all.filter(function(r){return r.parent_id!==uid&&r.status==="approved"});
  box.innerHTML=ppl.length?ppl.map(function(r){var perm=hiddenIds.indexOf(r.parent_id)>-1;
   return '<label style="display:flex;align-items:center;gap:10px;margin:6px 0;font-weight:600"><input type="checkbox" style="width:22px;height:22px;flex:none" data-hide="'+esc(r.parent_id)+'"'+(perm||checked.indexOf(r.parent_id)>-1?' checked':'')+(perm?' disabled':'')+'><span>'+esc(r.display_name)+(perm?' <span class="where">(always hidden)</span>':'')+'</span></label>'}).join(""):'<p class="hint">No one else is in this circle yet.</p>'}
 function hidePicked(){return [].slice.call(document.querySelectorAll("#sheet [data-hide]:checked:not(:disabled)")).map(function(x){return x.dataset.hide})}
@@ -256,13 +263,13 @@ function planSheet(){
  +'<label for="pw">Where</label><input id="pw" placeholder="Meeting spot or address">'
  +'<div class="two"><div><label for="pf">From</label><input id="pf" type="text" inputmode="text" autocomplete="off" value="10:00 am" placeholder="e.g. 10am or 2:30pm"></div><div><label for="pe">Until (optional)</label><input id="pe" type="text" inputmode="text" autocomplete="off" value="" placeholder="Empty = until it ends"></div></div>'
  +'<label for="pd">Day</label><input id="pd" type="text" inputmode="text" autocomplete="off" placeholder="e.g. 12 Oct, 12/10 or tomorrow" value="'+fmtDate(todayStr())+'"><button type="button" class="b sm" data-a="cal" data-t="pd" style="margin-top:6px">Calendar</button><input type="date" id="pd_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none"><div style="display:flex;gap:6px;margin:8px 0"><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="0" data-keep="1">Today</button><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="1" data-keep="1">Tomorrow</button><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="2" data-keep="1">In 2 days</button></div>'
- +'<p class="hint" id="pend"></p><label for="pg">Share with</label><p class="hint" style="margin-top:0">Only people in this circle will see it, and they get an alert.</p><select id="pg">'+sortedCircles().map(function(c){return '<option value="'+esc(c.circle_id)+'">'+esc(cname(c.circle_id,c.circles.name))+'</option>'}).join("")+'</select>'
+ +'<p class="hint" id="pend"></p><label>Share with</label><p class="hint" style="margin-top:0">Tick one or more circles. Only people in those circles will see it, and they get an alert. Someone in several of them sees it once.</p><div class="card" style="padding:6px 12px" id="pcs">'+sortedCircles().map(function(c,i){var on=sel!=="all"?c.circle_id===sel:i===0;return '<label style="display:flex;align-items:center;gap:10px;margin:6px 0;font-weight:600"><input type="checkbox" style="width:22px;height:22px;flex:none" data-pc="'+esc(c.circle_id)+'"'+(on?' checked':'')+'><span>'+esc(cname(c.circle_id,c.circles.name))+'</span></label>'}).join("")+'</div>'
  +'<details style="margin-top:12px"><summary style="font-weight:600;cursor:pointer">Hide from specific people (optional)</summary><p class="hint">They will not see this activity or who replied. They are not told. People you always hide are ticked already.</p><div id="hidelist" class="card" style="padding:6px 12px;margin-top:8px"><p class="hint">Loading...</p></div></details>'
  +'<label for="pn">Note (optional)</label><textarea id="pn" rows="2" placeholder="Come if you\'re free!"></textarea><div class="err" id="pe2"></div>'
- +'<button class="big" data-a="sendplan">Send to circle</button><button class="link" data-a="close">Cancel</button>');
+ +'<button class="big" data-a="sendplan">Send</button><button class="link" data-a="close">Cancel</button>');
  endHint();
- planHides=[];fillHideList($("pg").value,[]);
- $("pg").onchange=function(){planHides=[];fillHideList($("pg").value,[])};
+ planHides=[];fillHideList(pickedCircles(),[]);
+ $("pcs").onchange=function(){fillHideList(pickedCircles(),hidePicked())};
 }
 function circlesSheet(msg){
  var ap=approved(),wait=circles.filter(function(c){return c.status==="pending"});
@@ -384,7 +391,7 @@ function backBtn(a,p){return '<button class="backb" data-a="'+a+'"'+(p?' data-p=
 function flash(sel,label){var el=document.querySelector("#sheet "+sel);if(!el)return;el.dataset.orig=el.textContent;el.textContent=label||"Saved \u2713";el.classList.add("saved");el.disabled=true;clearTimeout(flash.t);flash.t=setTimeout(unflash,3000)}
 function unflash(){[].forEach.call(document.querySelectorAll("#sheet .saved"),function(e){e.textContent=e.dataset.orig||"Save";e.classList.remove("saved");e.disabled=false})}
 function circleRow(sc,now){
- var cnt=function(cid){return plans.filter(function(p){return p.circle_id===cid&&new Date(p.ends_at)>=now&&dismissed.indexOf(p.id)<0}).length};
+ var cnt=function(cid){return plans.filter(function(p){return pcOf(p).indexOf(cid)>-1&&new Date(p.ends_at)>=now&&dismissed.indexOf(p.id)<0}).length};
  return '<nav class="crow" id="crow" aria-label="Your circles">'
   +'<button class="cb" data-a="sel" data-c="all" aria-label="All circles" aria-pressed="'+(sel==="all")+'"><span class="cbub" style="background:var(--ink);color:var(--bg)"><span class="n" style="font-size:16px">All</span></span></button>'
   +sc.map(function(c){var ci=c.circles,n=cnt(c.circle_id),col=ci.color||COLORS[0],nm=cname(c.circle_id,ci.name);return '<button class="cb" data-a="sel" data-c="'+esc(c.circle_id)+'" aria-label="'+esc(nm)+'" aria-pressed="'+(sel===c.circle_id)+'"><span class="cbub" style="background:'+esc(col)+';color:'+inkOn(col)+'"><span class="e">'+esc(ci.emoji||"\ud83d\udc4b")+'</span><span class="n">'+esc(nm)+'</span></span>'+(n?'<span class="cnt">'+n+'</span>':'')+(stars[c.circle_id]?'<span class="stm">&#9733;</span>':'')+'</button>'}).join("")
@@ -447,13 +454,15 @@ function editSheet(pid){
  +'<label for="ed2">Day</label><input id="ed2" type="text" autocomplete="off" placeholder="e.g. 12 Oct, 12/10 or tomorrow" value="'+fmtDate(iso)+'">'
  +'<button type="button" class="b sm" data-a="cal" data-t="ed2" style="margin-top:6px">Calendar</button><input type="date" id="ed2_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none">'
  +'<p class="hint" id="eend"></p>'+whoBoxes((p.who_names||(p.child&&p.child.first_name)||"").split(", "))+'<details style="margin-top:12px"><summary style="font-weight:600;cursor:pointer">Hide from specific people (optional)</summary><p class="hint">They will not see this activity or who replied. They are not told.</p><div id="hidelist" class="card" style="padding:6px 12px;margin-top:8px"><p class="hint">Loading...</p></div></details>'
+ +(function(){var cur=pcs[p.id]||[p.circle_id],more=sortedCircles().filter(function(c){return cur.indexOf(c.circle_id)<0});
+   return more.length?'<details style="margin-top:12px"><summary style="font-weight:600;cursor:pointer">Share with more circles (optional)</summary><p class="hint">People in the circles you add get an alert. You can add circles but not take them away.</p><div class="card" style="padding:6px 12px">'+more.map(function(c){return '<label style="display:flex;align-items:center;gap:10px;margin:6px 0;font-weight:600"><input type="checkbox" style="width:22px;height:22px;flex:none" data-pc="'+esc(c.circle_id)+'"><span>'+esc(cname(c.circle_id,c.circles.name))+'</span></label>'}).join("")+'</div></details>':''})()
  +'<label for="en">Note (optional)</label><textarea id="en" rows="2">'+esc(p.note||"")+'</textarea><div class="err" id="ee2"></div>'
  +'<button class="big" data-a="saveplan" data-p="'+esc(pid)+'">Save and notify</button><button class="link" data-a="close">Cancel</button>');
- endHint();fillHideList(p.circle_id,planHides);
+ endHint();fillHideList(pcOf(p),planHides);
 }
 function cancelSheet(pid){
  var p=plans.find(function(x){return x.id===pid})||{title:"this activity"},c=counts[pid]||{},n=(c.going||0)+(c.maybe||0);
- setSheet('<h2>Cancel "'+esc(p.title)+'"?</h2><p class="hint">'+n+(n===1?' person has':' people have')+' said they are coming or might. What should happen?</p>'
+ setSheet('<h2>Cancel "'+esc(p.title)+'"?</h2><p class="hint">'+n+(n===1?' person has':' people have')+' said they are going or might. What should happen?</p>'
   +'<button class="big" data-a="cancelplan" data-k="1" data-p="'+esc(pid)+'">Let others keep it going</button>'
   +'<p class="hint">It stays on the list as "Organiser cancelled" for an hour. Everyone who replied gets an alert, and any of them can take it over. If nobody does, it ends.</p>'
   +'<button class="big" style="background:transparent;color:var(--ink);border:2px solid var(--ink)" data-a="cancelplan" data-k="0" data-p="'+esc(pid)+'">Cancel for everyone</button>'
@@ -463,9 +472,9 @@ function cancelSheet(pid){
 function draw(){
  if(!me)return;
  var ap=approved(),ids=ap.map(function(c){return c.circle_id}),now=new Date();
-  var sc=sortedCircles(),rl=$("crow")?$("crow").scrollLeft:0,hn=plans.filter(function(p){return ids.indexOf(p.circle_id)>-1&&(sel==="all"||p.circle_id===sel)&&dismissed.indexOf(p.id)>-1}).length;
+  var sc=sortedCircles(),rl=$("crow")?$("crow").scrollLeft:0,hn=plans.filter(function(p){return inSel(p)&&dismissed.indexOf(p.id)>-1}).length;
  var chips='<button class="chip" data-a="sel" data-c="all" aria-pressed="'+(sel==="all")+'">All circles</button>'+ap.map(function(c){return '<button class="chip" data-a="sel" data-c="'+esc(c.circle_id)+'" aria-pressed="'+(sel===c.circle_id)+'">'+esc(cname(c.circle_id,c.circles.name))+'</button>'}).join("");
- var list=plans.filter(function(p){return ids.indexOf(p.circle_id)>-1&&(sel==="all"||p.circle_id===sel)&&dismissed.indexOf(p.id)<0&&(!p.cancelled_at||p.host_id===uid||replies.some(function(r){return r.plan_id===p.id&&r.parent_id===uid&&(r.status==="going"||r.status==="maybe")}))});
+ var list=plans.filter(function(p){return inSel(p)&&dismissed.indexOf(p.id)<0&&(!p.cancelled_at||p.host_id===uid||replies.some(function(r){return r.plan_id===p.id&&r.parent_id===uid&&(r.status==="going"||r.status==="maybe")}))});
  var cards=list.map(function(p){
   var party=p.kind==="party",s=new Date(p.starts_at),e=new Date(p.ends_at);
   var rs=replies.filter(function(r){return r.plan_id===p.id}),myR=(rs.find(function(r){return r.parent_id===uid})||{}).status;
@@ -477,10 +486,10 @@ function draw(){
   var isNow=s<=now&&now<=e,ended=e<now,host=p.host_id===uid;
   var canc=!!p.cancelled_at,hand=canc&&!!p.handover_until&&new Date(p.handover_until)>now,orig=(p.orig&&p.orig.display_name)||"The organiser";
   var l1=party?"Maybe":"I might pop by",l2=party?"Going":"See you there";
-  return '<article class="card '+(party?"party":isNow?"now":"")+(hand?" canc":"")+(ended||(canc&&!hand)?" old":"")+'"><div class="top"><div><div class="who">'+esc(p.host&&p.host.display_name)+' · '+esc(cname(p.circle_id,p.circle&&p.circle.name))+'</div><div class="title">'+esc(p.title)+'</div></div><span class="tag '+(party?"p":"")+(canc?" x":"")+'">'+(canc?(hand?"Organiser cancelled":"Cancelled"):ended?"Ended":party?"RSVP":isNow?"Happening now":"Drop-in")+'</span></div>'+(p.created_at?'<div class="where" style="font-size:12px">Sent '+esc(sentAt(p.created_at))+'</div>':'')+(canc?'<div class="where" style="color:var(--coral);font-weight:700">'+(host?'You cancelled this.':esc(orig)+' cancelled this.')+(hand?(host?' People who said they were coming can keep it going until ':' You can keep it going until ')+tm(new Date(p.handover_until))+'.':'')+'</div>':'')+(!canc&&p.orig_host_id&&p.orig_host_id!==p.host_id?'<div class="where" style="font-size:12px">Originally planned by '+esc(orig)+'</div>':'')+(p.edited_at&&!ended&&!canc?'<div class="where" style="color:var(--coral);font-weight:700">Updated '+esc(ago(p.edited_at))+'</div>':'')
+  return '<article class="card '+(party?"party":isNow?"now":"")+(hand?" canc":"")+(ended||(canc&&!hand)?" old":"")+'"><div class="top"><div><div class="who">'+esc(p.host&&p.host.display_name)+' · '+esc(pcOf(p).map(function(c){return cname(c,(circles.find(function(x){return x.circle_id===c})||{circles:{}}).circles.name)}).join(", "))+'</div><div class="title">'+esc(p.title)+'</div></div><span class="tag '+(party?"p":"")+(canc?" x":"")+'">'+(canc?(hand?"Organiser cancelled":"Cancelled"):ended?"Ended":party?"RSVP":isNow?"Happening now":"Drop-in")+'</span></div>'+(p.created_at?'<div class="where" style="font-size:12px">Sent '+esc(sentAt(p.created_at))+'</div>':'')+(canc?'<div class="where" style="color:var(--coral);font-weight:700">'+(host?'You cancelled this.':esc(orig)+' cancelled this.')+(hand?(host?' People who said they were going can keep it going until ':' You can keep it going until ')+tm(new Date(p.handover_until))+'.':'')+'</div>':'')+(!canc&&p.orig_host_id&&p.orig_host_id!==p.host_id?'<div class="where" style="font-size:12px">Originally planned by '+esc(orig)+'</div>':'')+(p.edited_at&&!ended&&!canc?'<div class="where" style="color:var(--coral);font-weight:700">Updated '+esc(ago(p.edited_at))+'</div>':'')
   +'<div class="when">'+esc(dayLabel(s))+', '+(p.open_ended?'from '+tm(s):tm(s)+'–'+tm(e)+(e.toDateString()!==s.toDateString()?' ('+esc(e.toLocaleDateString(undefined,{weekday:"short"}))+')':''))+((p.who_names||(p.child&&p.child.first_name))?' · '+esc(p.who_names||p.child.first_name):'')+'</div><div class="where">'+esc(p.place_name)+'</div>'+(p.note?'<p class="note">'+esc(p.note)+'</p>':'')
   +'<div class="row"><span class="going">'+cnt+'</span>'+(host?(canc?'<div>'+(ended?'':'<button class="b sm" data-a="undocancel" data-p="'+esc(p.id)+'">Undo</button> ')+'<button class="b sm del" data-a="delplan" data-p="'+esc(p.id)+'">Delete</button></div>':'<div><button class="b sm" data-a="editplan" data-p="'+esc(p.id)+'">Edit</button> <button class="b sm del" data-a="delplan" data-p="'+esc(p.id)+'">Delete</button></div>'):'')+'</div>'
-  +(canc?(host?'':hand&&myR?'<button class="big" style="margin-top:10px" data-a="keepplan" data-p="'+esc(p.id)+'">Keep it going</button>':'<button class="link" style="font-size:13px;margin-top:8px" data-a="dismiss" data-p="'+esc(p.id)+'">Hide this</button>'):host?'':myR?'<div class="mine"><b>\u2713 '+(myR==="going"?(party?"You\'re going":"You\'re coming"):(party?"You said maybe":"You might pop by"))+'</b><button class="b sm" data-a="replysheet" data-p="'+esc(p.id)+'">Change</button></div>':'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px"><button class="b '+(myR==="maybe"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="maybe" data-p="'+esc(p.id)+'">'+l1+'</button><button class="b '+(myR==="going"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="going" data-p="'+esc(p.id)+'">'+l2+'</button><button class="b" style="font-size:13px;padding:9px 4px" data-a="dismiss" data-p="'+esc(p.id)+'">Not for me</button></div>')+(host||!myR||ended||canc?'':'<div class="where" style="margin-top:10px">'+(reminders[p.id]?'🔔 '+(new Date(reminders[p.id])>now?'Leave-by alert at ':'Leave-by alert was at ')+tm(new Date(reminders[p.id]))+(new Date(reminders[p.id])>now?' <button class="b sm" data-a="leavesheet" data-p="'+esc(p.id)+'">Change</button>':''):'<button class="b sm" data-a="leavesheet" data-p="'+esc(p.id)+'">🔔 Set a leave-by alert</button>')+'</div>')+(host||canc?'':'<button class="link" style="font-size:13px;margin-top:8px" data-a="safety" data-p="'+esc(p.id)+'">Report or block</button>')+'</article>'}).join("");
+  +(canc?(host?'':hand&&myR?'<button class="big" style="margin-top:10px" data-a="keepplan" data-p="'+esc(p.id)+'">Keep it going</button>':'<button class="link" style="font-size:13px;margin-top:8px" data-a="dismiss" data-p="'+esc(p.id)+'">Hide this</button>'):host?'':myR?'<div class="mine"><b>\u2713 '+(myR==="going"?"You\'re going":(party?"You said maybe":"You might pop by"))+'</b><button class="b sm" data-a="replysheet" data-p="'+esc(p.id)+'">Change</button></div>':'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px"><button class="b '+(myR==="maybe"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="maybe" data-p="'+esc(p.id)+'">'+l1+'</button><button class="b '+(myR==="going"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="going" data-p="'+esc(p.id)+'">'+l2+'</button><button class="b" style="font-size:13px;padding:9px 4px" data-a="dismiss" data-p="'+esc(p.id)+'">Not for me</button></div>')+(host||!myR||ended||canc?'':'<div class="where" style="margin-top:10px">'+(reminders[p.id]?'🔔 '+(new Date(reminders[p.id])>now?'Leave-by alert at ':'Leave-by alert was at ')+tm(new Date(reminders[p.id]))+(new Date(reminders[p.id])>now?' <button class="b sm" data-a="leavesheet" data-p="'+esc(p.id)+'">Change</button>':''):'<button class="b sm" data-a="leavesheet" data-p="'+esc(p.id)+'">🔔 Set a leave-by alert</button>')+'</div>')+(host||canc?'':'<button class="link" style="font-size:13px;margin-top:8px" data-a="safety" data-p="'+esc(p.id)+'">Report or block</button>')+'</article>'}).join("");
  $("app").innerHTML='<div class="head"><button class="rbtn" data-a="circles" aria-label="Circles'+(pending.length?', '+pending.length+' waiting for approval':'')+'"><img src="icon.svg" alt="" style="width:100%;height:100%;border-radius:50%;display:block">'+(pending.length?'<span class="cnt">'+pending.length+'</span>':'')+'</button><div class="brand"><h1>PopRound</h1></div><button class="rbtn" data-a="profile" aria-label="Settings"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div><p class="sub">Hi '+esc(me.display_name.replace(/\.$/,''))+'. No invites, no pressure. Just: we\'ll be here.</p>'
   +(ap.length?circleRow(sc,now):'')
   +(ap.length&&sel!=="all"?'<p class="hint" style="margin:0 0 8px">Showing <b>'+esc(cname(sel,(ap.find(function(c){return c.circle_id===sel})||{circles:{}}).circles.name))+'</b>. Tap All to see everything.</p>':'')
@@ -625,7 +634,7 @@ async function act(b){
   var db=await sb.rpc("block_user",{p_user:b.dataset.p});if(db.error)throw db.error;await load();circlesSheet("Blocked. They are not told.")}
  else if(a==="decide"){if(b.dataset.y==="1"&&!warnedOnce()){if(!confirm("Only approve people you know in real life.\n\nCheck the name matches someone you recognise. If you do not know them, decline and block them instead.\n\nApprove this person?"))return;setWarned()}
   var d=await sb.rpc("decide_request",{p_circle:b.dataset.c,p_parent:b.dataset.p,p_approve:b.dataset.y==="1"});if(d.error)throw d.error;await load();circlesSheet()}
- else if(a==="leave"){if(!confirm("Leave this circle? Your activities in it will be deleted."))return;
+ else if(a==="leave"){if(!confirm("Leave this circle? Your activities will stop being shared with it (and are deleted if it was their only circle)."))return;
   var l=await sb.rpc("leave_circle",{p_circle:b.dataset.c});if(l.error){toast(l.error.message);return}
   if(sel===b.dataset.c)sel="all";await load();circlesSheet()}
  else if(a==="sendplan"){var t=v("pt");if(!t){E("pe2","Add what the activity is.");return}
@@ -633,11 +642,12 @@ async function act(b){
   var dd=parseDate(v("pd"));if(!dd){E("pe2","Type the day like 12 Oct, 12/10 or tomorrow.");return}
   var bt=buildTimes(dd,v("pf"),v("pe"));if(bt.err){E("pe2",bt.err);return}
   var s=bt.s,e=bt.e;
-  var ins=await sb.rpc("create_plan",{p_circle:v("pg"),p_child:wp.childId,p_who:wp.names,p_kind:v("pk"),p_title:t,p_place:v("pw")||"Location to be shared",p_starts:s.toISOString(),p_ends:e.toISOString(),p_open:bt.open,p_note:v("pn")||null,p_hide:hidePicked()});
-  if(ins.error)throw ins.error;setSheet("");toast("Sent. Your circle has been notified.");await load()}
+  var pcl=pickedCircles();if(!pcl.length){E("pe2","Tick at least one circle to share with.");return}
+  var ins=await sb.rpc("create_plan_multi",{p_circles:pcl,p_child:wp.childId,p_who:wp.names,p_kind:v("pk"),p_title:t,p_place:v("pw")||"Location to be shared",p_starts:s.toISOString(),p_ends:e.toISOString(),p_open:bt.open,p_note:v("pn")||null,p_hide:hidePicked()});
+  if(ins.error)throw ins.error;setSheet("");toast(pcl.length>1?"Sent. Your circles have been notified.":"Sent. Your circle has been notified.");await load()}
  else if(a==="reply"){var pid=b.dataset.p,st=b.dataset.s,cur=(replies.find(function(x){return x.plan_id===pid&&x.parent_id===uid})||{}).status;
   var rr=cur===st?await sb.from("plan_replies").delete().eq("plan_id",pid).eq("parent_id",uid):await sb.from("plan_replies").upsert({plan_id:pid,parent_id:uid,status:st});
-  if(rr.error)throw rr.error;toast(cur===st?"Removed your reply":(st==="going"?"They know you're coming":"They know you might pop by"));await load()}
+  if(rr.error)throw rr.error;toast(cur===st?"Removed your reply":(st==="going"?"They know you're going":"They know you might pop by"));await load()}
  else if(a==="dismiss"){var dpid=b.dataset.p;setSheet("");
   await sb.from("plan_replies").delete().eq("plan_id",dpid).eq("parent_id",uid);
   var dr=await sb.from("plan_dismissals").upsert({plan_id:dpid,parent_id:uid});if(dr.error)throw dr.error;
@@ -659,13 +669,15 @@ async function act(b){
   var s2=bt2.s,e2=bt2.e;
   var sh=await sb.rpc("set_plan_hidden",{p_plan:b.dataset.p,p_hide:hidePicked()});if(sh.error)throw sh.error;
   var up=await sb.from("plans").update({title:et,place_name:v("ew")||"Location to be shared",starts_at:s2.toISOString(),ends_at:e2.toISOString(),open_ended:bt2.open,note:v("en")||null,who_names:wq.names,child_id:wq.childId}).eq("id",b.dataset.p);
-  if(up.error)throw up.error;setSheet("");toast("Saved. Your circle has been notified.");await load()}
+  if(up.error)throw up.error;
+  var addc=pickedCircles();if(addc.length){var ac=await sb.rpc("add_plan_circles",{p_plan:b.dataset.p,p_circles:addc});if(ac.error)throw ac.error}
+  setSheet("");toast(addc.length?"Saved. Your circles have been notified.":"Saved. Your circle has been notified.");await load()}
  else if(a==="delplan"){var dpid=b.dataset.p,dpl=plans.find(function(x){return x.id===dpid})||{},dcn=counts[dpid]||{};
   if(dpl.cancelled_at){if(confirm("Remove this cancelled activity for everyone?")){var d1=await sb.from("plans").delete().eq("id",dpid);if(d1.error)throw d1.error;await load()}}
   else if((dcn.going||0)+(dcn.maybe||0)>0){cancelSheet(dpid)}
   else if(confirm("Delete this activity for everyone?")){var dp=await sb.from("plans").delete().eq("id",dpid);if(dp.error)throw dp.error;await load()}}
  else if(a==="cancelplan"){var cr=await sb.rpc("cancel_plan",{p_plan:b.dataset.p,p_keep:b.dataset.k==="1"});if(cr.error)throw cr.error;setSheet("");
-  toast(cr.data==="handover"?"Cancelled. People who were coming have been told, and can keep it going for an hour.":cr.data==="cancelled"?"Cancelled. Everyone who replied has been told.":"Deleted.");await load()}
+  toast(cr.data==="handover"?"Cancelled. People who were going have been told, and can keep it going for an hour.":cr.data==="cancelled"?"Cancelled. Everyone who replied has been told.":"Deleted.");await load()}
  else if(a==="keepplan"){var kr=await sb.rpc("keep_plan_going",{p_plan:b.dataset.p});if(kr.error)throw kr.error;toast("It's yours now. Tap Edit to change anything. The others have been told.");await load()}
  else if(a==="undocancel"){var ur2=await sb.rpc("restore_plan",{p_plan:b.dataset.p});if(ur2.error)throw ur2.error;toast("Back on. People who replied have been told.");await load()}
  }catch(e){toast("That didn't save: "+(e.message||"error"))}

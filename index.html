@@ -165,7 +165,7 @@ var stars={},pickN={color:COLORS[0],emoji:"👋"},pickE={color:COLORS[0],emoji:"
 var sb,uid=null,me=null,kids=[],blocked=[],dismissed=[],safeT=null,circles=[],plans=[],replies=[],pending=[],sel="all",subscribed=false,toastFor=null,toastKind="New",timer=null;
 var SW=["#1F8A5F","#E8A400","#3B6FE0","#E4584A","#8A3FC0","#E0457B","#0E8F8F","#F08A24","#6C8FB8"],CD={g:"#1F8A5F",m:"#E8A400",h:"#3B6FE0"};
 var cols=(function(){var c={g:CD.g,m:CD.m,h:CD.h};try{var j=JSON.parse(localStorage.getItem("pr_cols")||"{}");["g","m","h"].forEach(function(k){if(SW.indexOf(j[k])>-1)c[k]=j[k]})}catch(e){}return c})(),cardOpen={};
-var pcs={},nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null,counts={},reminders={},ckw=null,profPriv={};
+var sponsors=[],sponsorSeen={},sponsorHidden=false,pcs={},nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null,counts={},reminders={},ckw=null,profPriv={};
 function daysLeft(ds){var e=new Date(ds+"T00:00:00"),t=new Date();t.setHours(0,0,0,0);return Math.round((e-t)/864e5)}
 function longDate(ds){return new Date(ds+"T00:00:00").toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short",year:"numeric"})}
 function endLabel(ds){if(!ds)return "No end date";var n=daysLeft(ds);if(n<0)return "Ended";if(n===0)return "Ends today";if(n===1)return "Ends tomorrow";if(n<=14)return "Ends in "+n+" days";return "Ends "+new Date(ds+"T00:00:00").toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"})}
@@ -234,10 +234,12 @@ async function load(){
   sb.rpc("reply_counts"),
   sb.from("leave_reminders").select("plan_id,remind_at"),
   sb.from("profiles_private").select("first_name,last_name").eq("parent_id",uid).maybeSingle(),
-  sb.from("plan_circles").select("plan_id,circle_id")]);
- var bad=r.find(function(x,i){return x.error&&i!==11&&i!==12});profPriv=(r[11]&&r[11].data)||{};if(bad){toast("Couldn't load: "+bad.error.message)}
+  sb.from("plan_circles").select("plan_id,circle_id"),
+  sb.from("sponsors").select("id,name,headline,body,link_url,image_url,emoji")]);
+ var bad=r.find(function(x,i){return x.error&&i!==11&&i!==12&&i!==13});profPriv=(r[11]&&r[11].data)||{};if(bad){toast("Couldn't load: "+bad.error.message)}
  me=r[0].data;kids=r[1].data||[];circles=r[2].data||[];plans=r[3].data||[];replies=r[4].data||[];pending=r[5].data||[];
  pcs={};(r[12]&&r[12].data||[]).forEach(function(x){(pcs[x.plan_id]=pcs[x.plan_id]||[]).push(x.circle_id)});
+ sponsors=(r[13]&&r[13].data||[]).filter(function(x){return /^https:\/\//.test(x.link_url)});
  counts={};(r[9].data||[]).forEach(function(x){(counts[x.plan_id]=counts[x.plan_id]||{})[x.status]=x.n});
  reminders={};(r[10].data||[]).forEach(function(x){reminders[x.plan_id]=x.remind_at});
  stars={};(r[8].data||[]).forEach(function(x){if(x.starred)stars[x.circle_id]=true});
@@ -470,6 +472,14 @@ function editSheet(pid){
  +'<button class="big" data-a="saveplan" data-p="'+esc(pid)+'">Save and notify</button><button class="link" data-a="close">Cancel</button>');
  endHint();fillHideList(pcOf(p),planHides);
 }
+function sponsorCard(){
+ if(sponsorHidden||!sponsors.length)return "";
+ var d=new Date(),sp=sponsors[(d.getFullYear()*372+d.getMonth()*31+d.getDate())%sponsors.length];
+ if(!sponsorSeen[sp.id]){sponsorSeen[sp.id]=1;sb.rpc("sponsor_event",{p_sponsor:sp.id,p_kind:"view"}).then(function(){},function(){})}
+ var img=sp.image_url&&/^https:\/\//.test(sp.image_url)?'<img src="'+esc(sp.image_url)+'" alt="" style="width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none">':'<span style="font-size:30px;flex:none;width:44px;text-align:center">'+esc(sp.emoji||"\u2B50")+'</span>';
+ return '<div class="card spons"><div class="where" style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase">Sponsored</div>'
+  +'<a href="'+esc(sp.link_url)+'" target="_blank" rel="noopener sponsored" data-a="sponsortap" data-s="'+esc(sp.id)+'" style="display:flex;gap:12px;align-items:center;text-decoration:none;color:inherit;margin-top:8px">'+img+'<span><b style="display:block">'+esc(sp.headline)+'</b>'+(sp.body?'<span class="where">'+esc(sp.body)+'</span>':'')+'<span class="where" style="display:block;font-size:12px">'+esc(sp.name)+'</span></span></a>'
+  +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px"><span class="where" style="font-size:12px">Sponsors help keep PopRound free. They never see your name, circles or activities.</span><button class="link" style="font-size:12px;width:auto;padding:4px 8px" data-a="sponsorhide">Hide</button></div></div>'}
 function whoSheet(pid,st){
  var p=plans.find(function(x){return x.id===pid});if(!p)return;
  var rs=replies.filter(function(r){return r.plan_id===pid&&r.status===st}),tot=Math.max(((counts[pid]||{})[st])||0,rs.length),other=tot-rs.length;
@@ -524,6 +534,7 @@ function draw(){
   +(ap.length&&sel!=="all"?'<p class="hint" style="margin:0 0 8px">Showing <b>'+esc(cname(sel,(ap.find(function(c){return c.circle_id===sel})||{circles:{}}).circles.name))+'</b>. Tap All to see everything.</p>':'')
   +ap.filter(function(c){return c.circles.ends_on&&daysLeft(c.circles.ends_on)<=7&&(sel==="all"||sel===c.circle_id)}).map(function(c){return '<p class="hint">'+esc(cname(c.circle_id,c.circles.name))+': '+esc(endLabel(c.circles.ends_on).toLowerCase())+'. Its activities disappear after that.</p>'}).join("")
   +(cards||'<div class="empty">'+(ap.length?"Nothing planned yet.<br>Tap “Share an activity” to tell your circle where you’ll be.":"Create a circle, or join one with a code. A new member is approved by the organiser first.")+'</div>')
+  +(ap.length?sponsorCard():'')
   +(hn?'<div style="text-align:center;margin:10px 0 20px"><button class="link" style="width:auto;padding:8px 14px" data-a="hidden">Hidden activities ('+hn+')</button></div>':'')
   +'<button class="fab" data-a="'+(ap.length?"newplan":"circles")+'">'+(ap.length?"+ Share an activity":"Set up a circle")+'</button>';
  $("app").className="app";
@@ -676,6 +687,8 @@ async function act(b){
   if(ins.error)throw ins.error;setSheet("");toast(pcl.length>1?"Sent. Your circles have been notified.":"Sent. Your circle has been notified.");await load()}
  else if(a==="togglecard"){var tp=b.dataset.p,tcur=cardOpen.hasOwnProperty(tp)?cardOpen[tp]:null;if(tcur===null){var tb=b.closest("article");tcur=!!tb&&!!tb.querySelector(".cfoot")}cardOpen[tp]=!tcur;draw()}
  else if(a==="setcol"){if(b.dataset.k==="reset"){cols={g:CD.g,m:CD.m,h:CD.h}}else cols[b.dataset.k]=b.dataset.v;try{localStorage.setItem("pr_cols",JSON.stringify(cols))}catch(e){}draw();profOpen.col=true;profileSheet()}
+ else if(a==="sponsortap"){sb.rpc("sponsor_event",{p_sponsor:b.dataset.s,p_kind:"tap"}).then(function(){},function(){})}
+ else if(a==="sponsorhide"){sponsorHidden=true;draw()}
  else if(a==="whosheet"){whoSheet(b.dataset.p,b.dataset.s)}
  else if(a==="reply"){var pid=b.dataset.p,st=b.dataset.s,cur=(replies.find(function(x){return x.plan_id===pid&&x.parent_id===uid})||{}).status;
   var rr=cur===st?await sb.from("plan_replies").delete().eq("plan_id",pid).eq("parent_id",uid):await sb.from("plan_replies").upsert({plan_id:pid,parent_id:uid,status:st});

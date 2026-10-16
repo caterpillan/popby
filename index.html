@@ -208,8 +208,12 @@ function welcomeInfo(){
   +'<div class="wi"><span>\uD83D\uDD14</span><p><b>Gentle nudges.</b> Get an alert when a friend posts, and a reminder when it\'s time to leave.</p></div>'
   +'<p class="fine">Free to use. We keep what we know about you to a minimum and never sell it. Tip: add PopRound to your Home Screen so it opens like any other app.</p></div>';
 }
+function recordOpen(){
+ try{var t=new Date().toISOString().slice(0,10);if(localStorage.getItem("pr_open_day")===t)return;
+  var inst=!!(window.matchMedia&&matchMedia("(display-mode: standalone)").matches)||navigator.standalone===true;
+  sb.rpc("record_app_open",{p_installed:inst}).then(function(r){if(!r.error){try{localStorage.setItem("pr_open_day",t)}catch(e){}}},function(){})}catch(e){}}
 async function start(){
- await load();
+ await load();recordOpen();
  if(!me)setupSheet();
  if(!subscribed){subscribed=true;
   sb.channel("pop").on("postgres_changes",{event:"*",schema:"public"},function(p){

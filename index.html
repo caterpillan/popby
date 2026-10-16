@@ -710,7 +710,7 @@ async function act(b){
  else if(a==="togglecard"){var tp=b.dataset.p,tcur=cardOpen.hasOwnProperty(tp)?cardOpen[tp]:null;if(tcur===null){var tb=b.closest("article");tcur=!!tb&&!!tb.querySelector(".cfoot")}cardOpen[tp]=!tcur;draw()}
  else if(a==="setcol"){if(b.dataset.k==="reset"){cols={g:CD.g,m:CD.m,h:CD.h}}else cols[b.dataset.k]=b.dataset.v;try{localStorage.setItem("pr_cols",JSON.stringify(cols))}catch(e){}draw();profOpen.col=true;profileSheet()}
  else if(a==="sponsortap"){sb.rpc("sponsor_event",{p_sponsor:b.dataset.s,p_kind:"tap"}).then(function(){},function(){})}
- else if(a==="sponsorhide"){sponsorHidden=true;draw()}
+ else if(a==="sponsorhide"){var hc=document.querySelector(".spons[data-sp]");if(hc)sb.rpc("sponsor_event",{p_sponsor:hc.dataset.sp,p_kind:"hide"}).then(function(){},function(){});sponsorHidden=true;draw()}
  else if(a==="whosheet"){whoSheet(b.dataset.p,b.dataset.s)}
  else if(a==="reply"){var pid=b.dataset.p,st=b.dataset.s,cur=(replies.find(function(x){return x.plan_id===pid&&x.parent_id===uid})||{}).status;
   var rr=cur===st?await sb.from("plan_replies").delete().eq("plan_id",pid).eq("parent_id",uid):await sb.from("plan_replies").upsert({plan_id:pid,parent_id:uid,status:st});

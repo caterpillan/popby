@@ -165,7 +165,7 @@ var stars={},pickN={color:COLORS[0],emoji:"👋"},pickE={color:COLORS[0],emoji:"
 var sb,uid=null,me=null,kids=[],blocked=[],dismissed=[],safeT=null,circles=[],plans=[],replies=[],pending=[],sel="all",subscribed=false,toastFor=null,toastKind="New",timer=null;
 var SW=["#1F8A5F","#E8A400","#3B6FE0","#E4584A","#8A3FC0","#E0457B","#0E8F8F","#F08A24","#6C8FB8"],CD={g:"#1F8A5F",m:"#E8A400",h:"#3B6FE0"};
 var cols=(function(){var c={g:CD.g,m:CD.m,h:CD.h};try{var j=JSON.parse(localStorage.getItem("pr_cols")||"{}");["g","m","h"].forEach(function(k){if(SW.indexOf(j[k])>-1)c[k]=j[k]})}catch(e){}return c})(),cardOpen={};
-var sponsors=[],sponsorSeen={},sponsorHidden=false,pcs={},nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null,counts={},reminders={},ckw=null,profPriv={};
+var sponsors=[],sponsorPick="",sponsorSeen={},sponsorHidden=false,pcs={},nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null,counts={},reminders={},ckw=null,profPriv={};
 function daysLeft(ds){var e=new Date(ds+"T00:00:00"),t=new Date();t.setHours(0,0,0,0);return Math.round((e-t)/864e5)}
 function longDate(ds){return new Date(ds+"T00:00:00").toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short",year:"numeric"})}
 function endLabel(ds){if(!ds)return "No end date";var n=daysLeft(ds);if(n<0)return "Ended";if(n===0)return "Ends today";if(n===1)return "Ends tomorrow";if(n<=14)return "Ends in "+n+" days";return "Ends "+new Date(ds+"T00:00:00").toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"})}
@@ -477,9 +477,15 @@ function watchSponsor(){
  var el=document.querySelector(".spons[data-sp]");if(!el||sponsorSeen[el.dataset.sp])return;
  if(!("IntersectionObserver" in window)){countSponsorView(el.dataset.sp);return}
  var io=new IntersectionObserver(function(en){en.forEach(function(x){if(x.isIntersecting){io.disconnect();countSponsorView(el.dataset.sp)}})},{threshold:.6});io.observe(el)}
+function pickSponsor(){
+ var cur=sponsors.find(function(x){return x.id===sponsorPick});if(cur)return cur;
+ var last="";try{last=localStorage.getItem("pr_lastsp")||""}catch(e){}
+ var pool=sponsors.length>1?sponsors.filter(function(x){return x.id!==last}):sponsors;
+ var sp=pool[Math.floor(Math.random()*pool.length)];sponsorPick=sp.id;
+ try{localStorage.setItem("pr_lastsp",sp.id)}catch(e){}return sp}
 function sponsorCard(){
  if(sponsorHidden||!sponsors.length)return "";
- var d=new Date(),sp=sponsors[(d.getFullYear()*372+d.getMonth()*31+d.getDate())%sponsors.length];
+ var sp=pickSponsor();
  var img=sp.image_url&&/^https:\/\//.test(sp.image_url)?'<img src="'+esc(sp.image_url)+'" alt="" referrerpolicy="no-referrer" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'block\'" style="width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none"><span style="display:none;font-size:30px;flex:none;width:44px;text-align:center">'+esc(sp.emoji||"⭐")+'</span>':'<span style="font-size:30px;flex:none;width:44px;text-align:center">'+esc(sp.emoji||"\u2B50")+'</span>';
  return '<div class="card spons" data-sp="'+esc(sp.id)+'"><div class="where" style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase">Sponsored</div>'
   +'<a href="'+esc(sp.link_url)+'" target="_blank" rel="noopener sponsored" data-a="sponsortap" data-s="'+esc(sp.id)+'" style="display:flex;gap:12px;align-items:center;text-decoration:none;color:inherit;margin-top:8px">'+img+'<span><b style="display:block">'+esc(sp.headline)+'</b>'+(sp.body?'<span class="where">'+esc(sp.body)+'</span>':'')+'<span class="where" style="display:block;font-size:12px">'+esc(sp.name)+'</span></span></a>'

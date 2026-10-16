@@ -151,6 +151,7 @@ function endHint(){
  if(!ut)msg="No end time. It will show as \u201cfrom "+(ft?tm(new Date("2000-01-01T"+ft)):"the start time")+"\u201d and fade out a few hours later.";
  else{var tu=parseTime(ut);if(ft&&tu&&dd){var s=new Date(dd+"T"+ft),e=new Date(dd+"T"+tu);if(e<s)msg="Ends the next day at "+tm(e)+"."}}
  $(pre[3]).textContent=msg}
+document.addEventListener("change",function(e){var t=e.target;if(t&&t.id==="adarea"){adArea=t.value;try{if(adArea)localStorage.setItem("pr_adarea",adArea);else localStorage.removeItem("pr_adarea")}catch(x){}sponsorPick="";draw();profOpen.area=true;profileSheet()}});
 document.addEventListener("input",function(e){if(e.target&&/^(pf|pe|pd|ef|ee|ed2)$/.test(e.target.id))endHint()});
 function parseTime(t){t=(t||"").toLowerCase().replace(/\./g,"").trim();var m=t.match(/^(\d{1,2})(?:[:\s]?(\d{2}))?\s*(am|pm|a|p)?$/);if(!m)return null;var h=+m[1],mi=m[2]?+m[2]:0,ap=m[3];if(mi>59)return null;
  if(ap){if(h<1||h>12)return null;if(ap[0]==="p"&&h<12)h+=12;if(ap[0]==="a"&&h===12)h=0}else if(h>23)return null;
@@ -165,7 +166,7 @@ var stars={},pickN={color:COLORS[0],emoji:"👋"},pickE={color:COLORS[0],emoji:"
 var sb,uid=null,me=null,kids=[],blocked=[],dismissed=[],safeT=null,circles=[],plans=[],replies=[],pending=[],sel="all",subscribed=false,toastFor=null,toastKind="New",timer=null;
 var SW=["#1F8A5F","#E8A400","#3B6FE0","#E4584A","#8A3FC0","#E0457B","#0E8F8F","#F08A24","#6C8FB8"],CD={g:"#1F8A5F",m:"#E8A400",h:"#3B6FE0"};
 var cols=(function(){var c={g:CD.g,m:CD.m,h:CD.h};try{var j=JSON.parse(localStorage.getItem("pr_cols")||"{}");["g","m","h"].forEach(function(k){if(SW.indexOf(j[k])>-1)c[k]=j[k]})}catch(e){}return c})(),cardOpen={};
-var sponsors=[],sponsorPick="",sponsorSeen={},sponsorHidden=false,pcs={},nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null,counts={},reminders={},ckw=null,profPriv={};
+var sponsors=[],sponsorPick="",adAreas=[],adArea=(function(){try{return localStorage.getItem("pr_adarea")||""}catch(e){return ""}})(),sponsorSeen={},sponsorHidden=false,pcs={},nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null,counts={},reminders={},ckw=null,profPriv={};
 function daysLeft(ds){var e=new Date(ds+"T00:00:00"),t=new Date();t.setHours(0,0,0,0);return Math.round((e-t)/864e5)}
 function longDate(ds){return new Date(ds+"T00:00:00").toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short",year:"numeric"})}
 function endLabel(ds){if(!ds)return "No end date";var n=daysLeft(ds);if(n<0)return "Ended";if(n===0)return "Ends today";if(n===1)return "Ends tomorrow";if(n<=14)return "Ends in "+n+" days";return "Ends "+new Date(ds+"T00:00:00").toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"})}
@@ -235,10 +236,12 @@ async function load(){
   sb.from("leave_reminders").select("plan_id,remind_at"),
   sb.from("profiles_private").select("first_name,last_name").eq("parent_id",uid).maybeSingle(),
   sb.from("plan_circles").select("plan_id,circle_id"),
-  sb.from("sponsors").select("id,name,headline,body,link_url,image_url,emoji")]);
- var bad=r.find(function(x,i){return x.error&&i!==11&&i!==12&&i!==13});profPriv=(r[11]&&r[11].data)||{};if(bad){toast("Couldn't load: "+bad.error.message)}
+  sb.from("sponsors").select("id,name,headline,body,link_url,image_url,emoji,target_areas,target_countries"),
+  sb.from("ad_areas").select("key,label,country").order("label")]);
+ var bad=r.find(function(x,i){return x.error&&i!==11&&i!==12&&i!==13&&i!==14});profPriv=(r[11]&&r[11].data)||{};if(bad){toast("Couldn't load: "+bad.error.message)}
  me=r[0].data;kids=r[1].data||[];circles=r[2].data||[];plans=r[3].data||[];replies=r[4].data||[];pending=r[5].data||[];
  pcs={};(r[12]&&r[12].data||[]).forEach(function(x){(pcs[x.plan_id]=pcs[x.plan_id]||[]).push(x.circle_id)});
+adAreas=(r[14]&&r[14].data)||[];if(adArea&&!adAreas.some(function(x){return x.key===adArea}))adArea=adAreas.length?"":adArea;
  sponsors=(r[13]&&r[13].data||[]).filter(function(x){return /^https:\/\//.test(x.link_url)});
  counts={};(r[9].data||[]).forEach(function(x){(counts[x.plan_id]=counts[x.plan_id]||{})[x.status]=x.n});
  reminders={};(r[10].data||[]).forEach(function(x){reminders[x.plan_id]=x.remind_at});
@@ -436,6 +439,7 @@ function profileSheet(msg){
  setSheet(backBtn("close")+'<h2>Settings</h2>'+(msg?'<p class="hint">'+esc(msg)+'</p>':'')
  +'<div class="acc"><button class="acch" data-a="profilepage"><span>Profile</span><span class="chev" aria-hidden="true">&#8250;</span></button></div>'
  +acc("col","Card colours",'<p class="hint">Choose the colour for each kind of activity. It applies to all your cards, on this phone.</p>'+[["g","Going"],["m","Maybe"],["h","Activities I organise"]].map(function(r){return '<div style="margin:10px 0"><b>'+r[1]+'</b><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">'+SW.map(function(c){var on=cols[r[0]]===c;return '<button data-a="setcol" data-k="'+r[0]+'" data-v="'+c+'" aria-label="'+r[1]+' colour" aria-pressed="'+on+'" style="width:38px;height:38px;border-radius:50%;background:'+c+';border:3px solid '+(on?'var(--ink)':'transparent')+';color:#fff;font-size:18px;font-weight:800;cursor:pointer">'+(on?'\u2713':'')+'</button>'}).join("")+'</div></div>'}).join("")+'<button class="b sm" data-a="setcol" data-k="reset">Reset to default</button>')
+ +(adAreas.length?acc("area","Ads near me",'<p class="hint">Optional. Pick your area to see local sponsors, like a business in your town. This choice stays on this phone. Sponsors never see your name, circles or activities. PopRound only counts how often an ad is shown in each area, with no names.</p><label for="adarea">My area</label><select id="adarea"><option value="">Not set</option>'+adAreas.map(function(x){return '<option value="'+esc(x.key)+'"'+(adArea===x.key?' selected':'')+'>'+esc(x.label)+'</option>'}).join("")+'</select>'):"")
  +acc("push","Notifications",'<div id="pushbox"><p class="hint">Checking...</p></div>')
  +acc("hide","Hide my activities from",strip(hideList))
  +acc("dis","Hidden activities"+(dis.length?" ("+dis.length+")":""),strip(disList))
@@ -472,20 +476,33 @@ function editSheet(pid){
  +'<button class="big" data-a="saveplan" data-p="'+esc(pid)+'">Save and notify</button><button class="link" data-a="close">Cancel</button>');
  endHint();fillHideList(pcOf(p),planHides);
 }
-function countSponsorView(id){if(sponsorSeen[id])return;sponsorSeen[id]=1;sb.rpc("sponsor_event",{p_sponsor:id,p_kind:"view"}).then(function(){},function(){})}
+function countSponsorView(id){if(sponsorSeen[id])return;sponsorSeen[id]=1;sb.rpc("sponsor_event",Object.assign({p_sponsor:id,p_kind:"view"},adGeo())).then(function(){},function(){})}
 function watchSponsor(){
  var el=document.querySelector(".spons[data-sp]");if(!el||sponsorSeen[el.dataset.sp])return;
  if(!("IntersectionObserver" in window)){countSponsorView(el.dataset.sp);return}
  var io=new IntersectionObserver(function(en){en.forEach(function(x){if(x.isIntersecting){io.disconnect();countSponsorView(el.dataset.sp)}})},{threshold:.6});io.observe(el)}
+var TZC={"Europe/London":"GB","Europe/Belfast":"GB","Europe/Dublin":"IE","Africa/Johannesburg":"ZA","America/New_York":"US","America/Chicago":"US","America/Denver":"US","America/Los_Angeles":"US","America/Toronto":"CA","America/Vancouver":"CA","Australia/Sydney":"AU","Australia/Melbourne":"AU","Australia/Perth":"AU","Pacific/Auckland":"NZ","Europe/Paris":"FR","Europe/Berlin":"DE","Europe/Madrid":"ES","Europe/Amsterdam":"NL","Asia/Dubai":"AE","Asia/Kolkata":"IN"};
+function adCountry(){
+ var a=adAreas.find(function(x){return x.key===adArea});if(a)return a.country;
+ try{var ls=navigator.languages||[navigator.language||""];for(var i=0;i<ls.length;i++){var m=/^[a-z]{2,3}-([A-Za-z]{2})$/.exec(ls[i]||"");if(m&&m[1].toUpperCase()!=="XX")return m[1].toUpperCase()}}catch(e){}
+ try{return TZC[Intl.DateTimeFormat().resolvedOptions().timeZone]||""}catch(e){return ""}}
+function adGeo(){var a=adAreas.some(function(x){return x.key===adArea})?adArea:"";return{p_country:adCountry()||null,p_area:a||null}}
+function sponsorFits(sp){
+ var split=function(t){return String(t||"").split(",").map(function(x){return x.trim().toLowerCase()}).filter(Boolean)};
+ var ar=split(sp.target_areas),co=split(sp.target_countries);
+ if(ar.length)return ar.indexOf(adArea)>-1;
+ if(co.length)return co.indexOf(adCountry().toLowerCase())>-1;
+ return true}
 function pickSponsor(){
- var cur=sponsors.find(function(x){return x.id===sponsorPick});if(cur)return cur;
+ var cur=sponsors.find(function(x){return x.id===sponsorPick});if(cur&&sponsorFits(cur))return cur;
+ var fit=sponsors.filter(sponsorFits);if(!fit.length)return null;
  var last="";try{last=localStorage.getItem("pr_lastsp")||""}catch(e){}
- var pool=sponsors.length>1?sponsors.filter(function(x){return x.id!==last}):sponsors;
+ var pool=fit.length>1?fit.filter(function(x){return x.id!==last}):fit;
  var sp=pool[Math.floor(Math.random()*pool.length)];sponsorPick=sp.id;
  try{localStorage.setItem("pr_lastsp",sp.id)}catch(e){}return sp}
 function sponsorCard(){
  if(sponsorHidden||!sponsors.length)return "";
- var sp=pickSponsor();
+ var sp=pickSponsor();if(!sp)return "";
  var img=sp.image_url&&/^https:\/\//.test(sp.image_url)?'<img src="'+esc(sp.image_url)+'" alt="" referrerpolicy="no-referrer" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'block\'" style="width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none"><span style="display:none;font-size:30px;flex:none;width:44px;text-align:center">'+esc(sp.emoji||"⭐")+'</span>':'<span style="font-size:30px;flex:none;width:44px;text-align:center">'+esc(sp.emoji||"\u2B50")+'</span>';
  return '<div class="card spons" data-sp="'+esc(sp.id)+'"><div class="where" style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase">Sponsored</div>'
   +'<a href="'+esc(sp.link_url)+'" target="_blank" rel="noopener sponsored" data-a="sponsortap" data-s="'+esc(sp.id)+'" style="display:flex;gap:12px;align-items:center;text-decoration:none;color:inherit;margin-top:8px">'+img+'<span><b style="display:block">'+esc(sp.headline)+'</b>'+(sp.body?'<span class="where">'+esc(sp.body)+'</span>':'')+'<span class="where" style="display:block;font-size:12px">'+esc(sp.name)+'</span></span></a>'
@@ -715,8 +732,8 @@ async function act(b){
   if(ins.error)throw ins.error;setSheet("");toast(pcl.length>1?"Sent. Your circles have been notified.":"Sent. Your circle has been notified.");await load()}
  else if(a==="togglecard"){var tp=b.dataset.p,tcur=cardOpen.hasOwnProperty(tp)?cardOpen[tp]:null;if(tcur===null){var tb=b.closest("article");tcur=!!tb&&!!tb.querySelector(".cfoot")}cardOpen[tp]=!tcur;draw()}
  else if(a==="setcol"){if(b.dataset.k==="reset"){cols={g:CD.g,m:CD.m,h:CD.h}}else cols[b.dataset.k]=b.dataset.v;try{localStorage.setItem("pr_cols",JSON.stringify(cols))}catch(e){}draw();profOpen.col=true;profileSheet()}
- else if(a==="sponsortap"){sb.rpc("sponsor_event",{p_sponsor:b.dataset.s,p_kind:"tap"}).then(function(){},function(){})}
- else if(a==="sponsorhide"){var hc=document.querySelector(".spons[data-sp]");if(hc)sb.rpc("sponsor_event",{p_sponsor:hc.dataset.sp,p_kind:"hide"}).then(function(){},function(){});sponsorHidden=true;draw()}
+ else if(a==="sponsortap"){sb.rpc("sponsor_event",Object.assign({p_sponsor:b.dataset.s,p_kind:"tap"},adGeo())).then(function(){},function(){})}
+ else if(a==="sponsorhide"){var hc=document.querySelector(".spons[data-sp]");if(hc)sb.rpc("sponsor_event",Object.assign({p_sponsor:hc.dataset.sp,p_kind:"hide"},adGeo())).then(function(){},function(){});sponsorHidden=true;draw()}
  else if(a==="whosheet"){whoSheet(b.dataset.p,b.dataset.s)}
  else if(a==="reply"){var pid=b.dataset.p,st=b.dataset.s,cur=(replies.find(function(x){return x.plan_id===pid&&x.parent_id===uid})||{}).status;
   var rr=cur===st?await sb.from("plan_replies").delete().eq("plan_id",pid).eq("parent_id",uid):await sb.from("plan_replies").upsert({plan_id:pid,parent_id:uid,status:st});

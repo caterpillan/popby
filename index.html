@@ -472,12 +472,16 @@ function editSheet(pid){
  +'<button class="big" data-a="saveplan" data-p="'+esc(pid)+'">Save and notify</button><button class="link" data-a="close">Cancel</button>');
  endHint();fillHideList(pcOf(p),planHides);
 }
+function countSponsorView(id){if(sponsorSeen[id])return;sponsorSeen[id]=1;sb.rpc("sponsor_event",{p_sponsor:id,p_kind:"view"}).then(function(){},function(){})}
+function watchSponsor(){
+ var el=document.querySelector(".spons[data-sp]");if(!el||sponsorSeen[el.dataset.sp])return;
+ if(!("IntersectionObserver" in window)){countSponsorView(el.dataset.sp);return}
+ var io=new IntersectionObserver(function(en){en.forEach(function(x){if(x.isIntersecting){io.disconnect();countSponsorView(el.dataset.sp)}})},{threshold:.6});io.observe(el)}
 function sponsorCard(){
  if(sponsorHidden||!sponsors.length)return "";
  var d=new Date(),sp=sponsors[(d.getFullYear()*372+d.getMonth()*31+d.getDate())%sponsors.length];
- if(!sponsorSeen[sp.id]){sponsorSeen[sp.id]=1;sb.rpc("sponsor_event",{p_sponsor:sp.id,p_kind:"view"}).then(function(){},function(){})}
  var img=sp.image_url&&/^https:\/\//.test(sp.image_url)?'<img src="'+esc(sp.image_url)+'" alt="" style="width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none">':'<span style="font-size:30px;flex:none;width:44px;text-align:center">'+esc(sp.emoji||"\u2B50")+'</span>';
- return '<div class="card spons"><div class="where" style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase">Sponsored</div>'
+ return '<div class="card spons" data-sp="'+esc(sp.id)+'"><div class="where" style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase">Sponsored</div>'
   +'<a href="'+esc(sp.link_url)+'" target="_blank" rel="noopener sponsored" data-a="sponsortap" data-s="'+esc(sp.id)+'" style="display:flex;gap:12px;align-items:center;text-decoration:none;color:inherit;margin-top:8px">'+img+'<span><b style="display:block">'+esc(sp.headline)+'</b>'+(sp.body?'<span class="where">'+esc(sp.body)+'</span>':'')+'<span class="where" style="display:block;font-size:12px">'+esc(sp.name)+'</span></span></a>'
   +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px"><span class="where" style="font-size:12px">Sponsors help keep PopRound free. They never see your name, circles or activities.</span><button class="link" style="font-size:12px;width:auto;padding:4px 8px" data-a="sponsorhide">Hide</button></div></div>'}
 function clashesFor(pid){
@@ -517,7 +521,7 @@ function draw(){
   var sc=sortedCircles(),rl=$("crow")?$("crow").scrollLeft:0,hn=plans.filter(function(p){return inSel(p)&&dismissed.indexOf(p.id)>-1}).length;
  var chips='<button class="chip" data-a="sel" data-c="all" aria-pressed="'+(sel==="all")+'">All circles</button>'+ap.map(function(c){return '<button class="chip" data-a="sel" data-c="'+esc(c.circle_id)+'" aria-pressed="'+(sel===c.circle_id)+'">'+esc(cname(c.circle_id,c.circles.name))+'</button>'}).join("");
  var list=plans.filter(function(p){return inSel(p)&&dismissed.indexOf(p.id)<0&&(!p.cancelled_at||p.host_id===uid||replies.some(function(r){return r.plan_id===p.id&&r.parent_id===uid&&(r.status==="going"||r.status==="maybe")}))});
- var cards=list.map(function(p){
+ var cardArr=list.map(function(p){
   var party=p.kind==="party",s=new Date(p.starts_at),e=new Date(p.ends_at);
   var rs=replies.filter(function(r){return r.plan_id===p.id}),myR=(rs.find(function(r){return r.parent_id===uid})||{}).status;
   var gs=rs.filter(function(r){return r.status==="going"}),ms=rs.filter(function(r){return r.status==="maybe"});
@@ -544,16 +548,18 @@ function draw(){
   +(clash.length?'<div class="where" style="color:#B3261E;font-weight:700;margin-top:8px">\u26A0 Clashes with '+clash.map(function(q){return esc(q.title)}).join(", ")+'</div>':'')
   +'<div class="cfoot"><div class="where" style="font-size:13px"><b style="color:var(--ink)">'+esc(p.host&&p.host.display_name)+'</b>'+(p.created_at?' &nbsp;Sent '+esc(sentAt(p.created_at)):'')+'</div>'+btns+'</div>'
   +(canc?(host?'':hand&&myR?'<button class="big" style="margin-top:10px" data-a="keepplan" data-p="'+esc(p.id)+'">Keep it going</button>':'<button class="link" style="font-size:13px;margin-top:8px" data-a="dismiss" data-p="'+esc(p.id)+'">Hide this</button>'):host?'':myR?'<div class="mine"><b>\u2713 '+(myR==="going"?"You\'re going":(party?"You said maybe":"You might pop by"))+'</b><button class="b sm" data-a="replysheet" data-p="'+esc(p.id)+'">Change</button></div>':'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px"><button class="b '+(myR==="maybe"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="maybe" data-p="'+esc(p.id)+'">'+l1+'</button><button class="b '+(myR==="going"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="going" data-p="'+esc(p.id)+'">'+l2+'</button><button class="b" style="font-size:13px;padding:9px 4px" data-a="dismiss" data-p="'+esc(p.id)+'">Not for me</button></div>')+(host||!myR||ended||canc?'':'<div class="where" style="margin-top:10px">'+(reminders[p.id]?'🔔 '+(new Date(reminders[p.id])>now?'Leave-by alert at ':'Leave-by alert was at ')+tm(new Date(reminders[p.id]))+(new Date(reminders[p.id])>now?' <button class="b sm" data-a="leavesheet" data-p="'+esc(p.id)+'">Change</button>':''):'<button class="b sm" data-a="leavesheet" data-p="'+esc(p.id)+'">🔔 Set a leave-by alert</button>')+'</div>')+(host||canc?'':'<button class="link" style="font-size:13px;margin-top:8px" data-a="safety" data-p="'+esc(p.id)+'">Report or block</button>');
-  return head+(open?tail:'')+'</article>'}).join("");
+  return head+(open?tail:'')+'</article>'});
+ var spH=ap.length?sponsorCard():"",cards=(spH&&cardArr.length>3?cardArr.slice(0,3).concat([spH],cardArr.slice(3)):cardArr).join(""),spBottom=cardArr.length>3?"":spH;
  $("app").innerHTML='<div class="head"><button class="rbtn" data-a="circles" aria-label="Circles'+(pending.length?', '+pending.length+' waiting for approval':'')+'"><img src="icon.svg" alt="" style="width:100%;height:100%;border-radius:50%;display:block">'+(pending.length?'<span class="cnt">'+pending.length+'</span>':'')+'</button><div class="brand"><h1>PopRound</h1></div><button class="rbtn" data-a="profile" aria-label="Settings"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div><p class="sub">Hi '+esc(me.display_name.replace(/\.$/,''))+'. No invites, no pressure. Just: we\'ll be here.</p>'
   +(ap.length?circleRow(sc,now):'')
   +(ap.length&&sel!=="all"?'<p class="hint" style="margin:0 0 8px">Showing <b>'+esc(cname(sel,(ap.find(function(c){return c.circle_id===sel})||{circles:{}}).circles.name))+'</b>. Tap All to see everything.</p>':'')
   +ap.filter(function(c){return c.circles.ends_on&&daysLeft(c.circles.ends_on)<=7&&(sel==="all"||sel===c.circle_id)}).map(function(c){return '<p class="hint">'+esc(cname(c.circle_id,c.circles.name))+': '+esc(endLabel(c.circles.ends_on).toLowerCase())+'. Its activities disappear after that.</p>'}).join("")
   +(cards||'<div class="empty">'+(ap.length?"Nothing planned yet.<br>Tap “Share an activity” to tell your circle where you’ll be.":"Create a circle, or join one with a code. A new member is approved by the organiser first.")+'</div>')
-  +(ap.length?sponsorCard():'')
+  +spBottom
   +(hn?'<div style="text-align:center;margin:10px 0 20px"><button class="link" style="width:auto;padding:8px 14px" data-a="hidden">Hidden activities ('+hn+')</button></div>':'')
   +'<button class="fab" data-a="'+(ap.length?"newplan":"circles")+'">'+(ap.length?"+ Share an activity":"Set up a circle")+'</button>';
  $("app").className="app";
+ watchSponsor();
  if(rl&&$("crow"))$("crow").scrollLeft=rl;
 }
 function warnedOnce(){try{return localStorage.getItem("popround_approve_warned")==="1"}catch(e){return false}}

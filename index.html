@@ -154,6 +154,7 @@ function endHint(){
  if(!ut)msg="No end time. It will show as \u201cfrom "+(ft?tm(new Date("2000-01-01T"+ft)):"the start time")+"\u201d and fade out a few hours later.";
  else{var tu=parseTime(ut);if(ft&&tu&&dd){var s=new Date(dd+"T"+ft),e=new Date(dd+"T"+tu);if(e<s)msg="Ends the next day at "+tm(e)+"."}}
  $(pre[3]).textContent=msg}
+document.addEventListener("input",function(e){var t=e.target;if(t&&t.id==="hq"){var q=nrm(t.value);[].forEach.call(document.querySelectorAll("#sheet [data-nm]"),function(r){r.style.display=!q||r.dataset.nm.indexOf(q)>-1?"":"none"});[].forEach.call(document.querySelectorAll("#sheet .acc"),function(g){var b=g.querySelector(".acch");if(!b||!/^hc_/.test(b.dataset.k||""))return;var vis=[].filter.call(g.querySelectorAll("[data-nm]"),function(r){return r.style.display!=="none"}).length;g.style.display=(vis||!q)?"":"none";if(q&&vis){g.classList.add("open");profOpen[b.dataset.k]=true}})}});
 document.addEventListener("input",function(e){if(e.target&&/^(pf|pe|pd|ef|ee|ed2)$/.test(e.target.id))endHint()});
 function parseTime(t){t=(t||"").toLowerCase().replace(/\./g,"").trim();var m=t.match(/^(\d{1,2})(?:[:\s]?(\d{2}))?\s*(am|pm|a|p)?$/);if(!m)return null;var h=+m[1],mi=m[2]?+m[2]:0,ap=m[3];if(mi>59)return null;
  if(ap){if(h<1||h>12)return null;if(ap[0]==="p"&&h<12)h+=12;if(ap[0]==="a"&&h===12)h=0}else if(h>23)return null;
@@ -242,9 +243,11 @@ async function load(){
   sb.from("leave_reminders").select("plan_id,remind_at"),
   sb.from("profiles_private").select("first_name,last_name").eq("parent_id",uid).maybeSingle(),
   sb.from("plan_circles").select("plan_id,circle_id"),
-  sb.from("sponsors").select("id,name,headline,body,link_url,image_url,emoji,target_areas,target_countries")]);
- var bad=r.find(function(x,i){return x.error&&i!==11&&i!==12&&i!==13});profPriv=(r[11]&&r[11].data)||{};if(bad){toast("Couldn't load: "+bad.error.message)}
- me=r[0].data;kids=r[1].data||[];circles=r[2].data||[];plans=r[3].data||[];replies=r[4].data||[];pending=r[5].data||[];
+  sb.from("sponsors").select("id,name,headline,body,link_url,image_url,emoji,target_areas,target_countries"),
+  sb.from("plan_who").select("plan_id,names")]);
+ var bad=r.find(function(x,i){return x.error&&i!==11&&i!==12&&i!==13&&i!==14});profPriv=(r[11]&&r[11].data)||{};if(bad){toast("Couldn't load: "+bad.error.message)}
+ me=r[0].data;kids=r[1].data||[];circles=r[2].data||[];plans=r[3].data||[];
+ var whoMap={};(r[14]&&r[14].data||[]).forEach(function(x){whoMap[x.plan_id]=x.names});plans.forEach(function(p){if(whoMap[p.id])p.who_names=whoMap[p.id]});replies=r[4].data||[];pending=r[5].data||[];
  pcs={};(r[12]&&r[12].data||[]).forEach(function(x){(pcs[x.plan_id]=pcs[x.plan_id]||[]).push(x.circle_id)});
 if(r[13]&&r[13].error){try{r[13]=await sb.from("sponsors").select("id,name,headline,body,link_url,image_url,emoji")}catch(e){}}
  sponsors=(r[13]&&r[13].data||[]).filter(function(x){return /^https:\/\//.test(x.link_url)});
@@ -254,28 +257,29 @@ if(r[13]&&r[13].error){try{r[13]=await sb.from("sponsors").select("id,name,headl
  dismissed=(r[7].data||[]).map(function(x){return x.plan_id});
  nicks={};(r[6].data||[]).forEach(function(n){nicks[n.circle_id]=n.nickname});
  if(sel!=="all"&&!approved().some(function(c){return c.circle_id===sel}))sel="all";
- if(toastFor){var p=plans.find(function(x){return x.id===toastFor});if(p)toast(toastKind+": "+(p.host&&p.host.display_name)+" · "+p.title+", "+tm(new Date(p.starts_at))+"–"+tm(new Date(p.ends_at)));toastFor=null;toastKind="New"}
+ if(toastFor){var p=plans.find(function(x){return x.id===toastFor});if(p)toast(toastKind+": "+hostName(p)+" · "+p.title+", "+tm(new Date(p.starts_at))+"–"+tm(new Date(p.ends_at)));toastFor=null;toastKind="New"}
  draw();
 }
 function approved(){return circles.filter(function(c){return c.status==="approved"&&c.circles&&!(c.circles.ends_on&&daysLeft(c.circles.ends_on)<0)})}
 async function loadContacts(){var pc=await sb.from("parents").select("id,display_name").neq("id",uid).order("display_name");var hh=await sb.from("hidden_from").select("hidden_id");contacts=pc.data||[];hiddenIds=(hh.data||[]).map(function(x){return x.hidden_id})}
 async function loadHideRosters(){
  var cs=approved(),out={};
- await Promise.all(cs.map(function(c){return sb.rpc("circle_roster",{p_circle:c.circle_id}).then(function(r){out[c.circle_id]=(r.data||[]).filter(function(x){return x.parent_id!==uid&&x.status==="approved"})},function(){})}));
+ await Promise.all(cs.map(function(c){return sb.rpc("circle_roster",{p_circle:c.circle_id}).then(function(r){out[c.circle_id]=(r.data||[]).filter(function(x){return x.parent_id&&x.parent_id!==uid&&x.status==="approved"})},function(){})}));
  circRoster=out}
 async function loadRoster(cid){var r=await sb.rpc("circle_roster",{p_circle:cid});if(r.error)throw r.error;roster=r.data||[]}
 function setupSheet(){
- setSheet('<h2>Welcome to PopRound</h2><p class="hint">Only people in circles you join will see this.</p><label for="sn">Your username (shown to people in your circles)</label><input id="sn" placeholder="Priya S."><label for="sk">Who usually comes along? First names, comma separated</label><input id="sk" placeholder="Aarav, Mia"><p class="hint">Just you? Add your own first name. You can add more people later in Settings.</p><div class="err" id="se"></div><button class="big" data-a="saveme">Continue</button>');
+ setSheet('<h2>Welcome to PopRound</h2><p class="hint">Only people in circles you join will see this. Your name stays private by default: only people in circles you organise, and the organisers of circles you join, can see it. You can change this in Settings.</p><label for="sn">Your username (shown to people in your circles)</label><input id="sn" placeholder="Priya S."><label for="sk">Who usually comes along? First names, comma separated</label><input id="sk" placeholder="Aarav, Mia"><p class="hint">Just you? Add your own first name. You can add more people later in Settings.</p><div class="err" id="se"></div><button class="big" data-a="saveme">Continue</button>');
 }
+function hostName(p){var n=p.host&&p.host.display_name;if(n)return n;var c=pcOf(p)[0],m=circles.find(function(x){return x.circle_id===c});return "A member"+(m&&m.circles?" of "+cname(c,m.circles.name):"")}
 function pcOf(p){var ids=approved().map(function(c){return c.circle_id});return (pcs[p.id]||[p.circle_id]).filter(function(c){return ids.indexOf(c)>-1})}
 function inSel(p){var l=pcOf(p);return l.length>0&&(sel==="all"||l.indexOf(sel)>-1)}
 function pickedCircles(){return [].slice.call(document.querySelectorAll("#sheet [data-pc]:checked")).map(function(x){return x.dataset.pc})}
 async function fillHideList(cids,checked){
  if(typeof cids==="string")cids=[cids];
  var all=[],seen={};
- for(var i=0;i<cids.length;i++){try{var rr=await sb.rpc("circle_roster",{p_circle:cids[i]});(rr.data||[]).forEach(function(x){if(!seen[x.parent_id]){seen[x.parent_id]=1;all.push(x)}})}catch(e){}}
+ for(var i=0;i<cids.length;i++){try{var rr=await sb.rpc("circle_roster",{p_circle:cids[i]});(rr.data||[]).forEach(function(x){if(x.parent_id&&!seen[x.parent_id]){seen[x.parent_id]=1;all.push(x)}})}catch(e){}}
  var box=$("hidelist");if(!box)return;
- var ppl=all.filter(function(r){return r.parent_id!==uid&&r.status==="approved"});
+ var ppl=all.filter(function(r){return r.parent_id&&r.parent_id!==uid&&r.status==="approved"});
  box.innerHTML=ppl.length?ppl.map(function(r){var perm=hiddenIds.indexOf(r.parent_id)>-1;
   return '<label style="display:flex;align-items:center;gap:10px;margin:6px 0;font-weight:600"><input type="checkbox" style="width:22px;height:22px;flex:none" data-hide="'+esc(r.parent_id)+'"'+(perm||checked.indexOf(r.parent_id)>-1?' checked':'')+(perm?' disabled':'')+'><span>'+esc(r.display_name)+(perm?' <span class="where">(always hidden)</span>':'')+'</span></label>'}).join(""):'<p class="hint">No one else is in this circle yet.</p>'}
 function hidePicked(){return [].slice.call(document.querySelectorAll("#sheet [data-hide]:checked:not(:disabled)")).map(function(x){return x.dataset.hide})}
@@ -306,7 +310,7 @@ function circlesSheet(msg){
 }
 function findSheet(msg){
  var join=joinInfo
-  ?'<div class="card"><b>'+esc(joinInfo.name)+'</b><div class="where">Organised by '+esc(joinInfo.organiser)+'</div><div class="where">'+esc(endLabel(joinInfo.ends_on))+(joinInfo.ends_on?' ('+esc(longDate(joinInfo.ends_on))+')':'')+'</div><p class="hint">Only join circles run by someone you know. The organiser has to approve you, and you can leave at any time.</p>'+(joinInfo.options?'<label>Secret word</label><p class="hint">The organiser gave you a secret word. Pick it from the list. <b>You only get one try.</b></p><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+joinInfo.options.map(function(w){return '<button class="b sm'+(joinInfo.word===w?' on':'')+'" data-a="pickword" data-w="'+esc(w)+'">'+esc(w)+'</button>'}).join("")+'</div>':'')+'<label>Your name on replies</label><button class="b sm'+(joinInfo.show?' on':'')+'" data-a="joinshow">Show my name: '+(joinInfo.show?'On':'Off')+'</button><p class="hint">Off (recommended): only the person who posted an activity sees your name on your reply. Everyone still sees the totals, like "3 going". You can change this later in the circle\'s settings.</p><button class="big" data-a="joincircle">Request to join</button><button class="link" data-a="clearjoin">Not this one</button></div>'
+  ?'<div class="card"><b>'+esc(joinInfo.name)+'</b><div class="where">Organised by '+esc(joinInfo.organiser)+'</div><div class="where">'+esc(endLabel(joinInfo.ends_on))+(joinInfo.ends_on?' ('+esc(longDate(joinInfo.ends_on))+')':'')+'</div><p class="hint">Only join circles run by someone you know. The organiser has to approve you, and you can leave at any time.</p>'+(me&&me.name_public===false?'<div class="card" style="border:2px solid #E8B923;margin:10px 0"><b>Good to know</b><p style="margin:4px 0 0;font-size:14px">Other members will not see your name or your family members\' names until you turn on <b>Show my name to everyone</b> in Settings. The organiser can always see them.</p></div>':'')+(joinInfo.options?'<label>Secret word</label><p class="hint">The organiser gave you a secret word. Pick it from the list. <b>You only get one try.</b></p><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+joinInfo.options.map(function(w){return '<button class="b sm'+(joinInfo.word===w?' on':'')+'" data-a="pickword" data-w="'+esc(w)+'">'+esc(w)+'</button>'}).join("")+'</div>':'')+'<label>Your name on replies</label><button class="b sm'+(joinInfo.show?' on':'')+'" data-a="joinshow">Show my name: '+(joinInfo.show?'On':'Off')+'</button><p class="hint">Off (recommended): only the person who posted an activity sees your name on your reply. Everyone still sees the totals, like "3 going". You can change this later in the circle\'s settings.</p><button class="big" data-a="joincircle">Request to join</button><button class="link" data-a="clearjoin">Not this one</button></div>'
   :'<label for="cj">Invite code</label><input id="cj" maxlength="6" placeholder="ABC123" style="text-transform:uppercase"><button class="big" data-a="lookup">Find circle</button>';
  setSheet(backBtn("circles")+'<h2>Find a circle</h2><p class="hint">Ask the organiser for the 6-letter invite code.</p>'+join+'<div class="err" id="ce">'+esc(msg||"")+'</div>');
 }
@@ -338,7 +342,7 @@ function circleSheet(cid,msg){
  var code='<div class="code">'+esc(ci.invite_code)+'</div><p class="hint">Share this code so people can ask to join. You approve each person'+(ckw?', and they also need the secret word':'')+'.</p>';
  var mem='<div class="card" style="margin-top:6px">'+act.map(function(r){
    return '<div class="req"><div><b>'+esc(r.display_name)+(r.parent_id===uid?' (you)':'')+'</b><div class="where">'+(r.role==="organiser"?"Organiser":"Member")+'</div></div>'
-   +(r.parent_id!==uid?'<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'+(org&&r.role!=="organiser"?'<button class="b sm" data-a="mkorg" data-c="'+esc(cid)+'" data-p="'+esc(r.parent_id)+'">Make organiser</button> <button class="b sm del" data-a="rmmem" data-c="'+esc(cid)+'" data-p="'+esc(r.parent_id)+'">Remove</button>':'')+'<button class="b sm" data-a="safety" data-u="'+esc(r.parent_id)+'" data-c="'+esc(cid)+'">Report / block</button></div>':'')+'</div>'}).join("")+'</div>';
+   +(r.parent_id&&r.parent_id!==uid?'<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'+(org&&r.role!=="organiser"?'<button class="b sm" data-a="mkorg" data-c="'+esc(cid)+'" data-p="'+esc(r.parent_id)+'">Make organiser</button> <button class="b sm del" data-a="rmmem" data-c="'+esc(cid)+'" data-p="'+esc(r.parent_id)+'">Remove</button>':'')+'<button class="b sm" data-a="safety" data-u="'+esc(r.parent_id)+'" data-c="'+esc(cid)+'">Report / block</button></div>':'')+'</div>'}).join("")+'</div>';
  var endB='<p class="hint" style="margin-top:0">'+(ci.ends_on?esc(longDate(ci.ends_on))+'. After this date the circle and its activities disappear for everyone.':'This circle has no end date.')+'</p>'
   +(org?'<label for="ed">Change end date</label><input id="ed" type="text" inputmode="text" autocomplete="off" placeholder="e.g. 12 Oct, 12/10 or tomorrow" value="'+esc(ci.ends_on?fmtDate(ci.ends_on):"")+'"><button type="button" class="b sm" data-a="cal" data-t="ed" style="margin-top:6px">Calendar</button><input type="date" id="ed_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none"><div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="7">+1 week</button><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="30">+1 month</button><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="90">+3 months</button><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="0">No end date</button></div><p class="hint">Leave empty for no end date. Everyone sees the new date.</p><button class="b sm on" data-a="saveend" data-c="'+esc(cid)+'">Save date</button>':'');
  var lookB='<p class="hint" style="margin-top:0">Everyone in the circle sees this colour and icon.</p>'+stylePicker("e",pickE)+'<button class="b sm on" data-a="savestyle" data-c="'+esc(cid)+'">Save look</button>';
@@ -436,7 +440,7 @@ function replySheet(pid,msg){
   +'<button class="link" data-a="dismiss" data-p="'+esc(pid)+'">Not for me: hide this activity</button><p class="hint">Hidden activities are kept under Hidden on the home screen, so you can bring them back.</p><div class="err" id="re">'+esc(msg||"")+'</div>');
 }
 function profileSheet(msg){
- var hideRow=function(p){var h=hiddenIds.indexOf(p.id)>-1;return '<div class="req"><b>'+esc(p.display_name)+'</b><button class="b sm'+(h?' on':'')+'" data-a="hidetoggle" data-p="'+esc(p.id)+'">'+(h?'Hidden':'Hide')+'</button></div>'};
+ var hideRow=function(p){var h=hiddenIds.indexOf(p.id)>-1;return '<div class="req" data-nm="'+esc(nrm(p.display_name))+'"><b>'+esc(p.display_name)+'</b><button class="b sm'+(h?' on':'')+'" data-a="hidetoggle" data-p="'+esc(p.id)+'">'+(h?'Hidden':'Hide')+'</button></div>'};
  var hideGroups="",hideSeen={};
  sortedCircles().forEach(function(c){var ppl=circRoster[c.circle_id]||[];if(!ppl.length)return;
   ppl.forEach(function(x){hideSeen[x.parent_id]=1});
@@ -444,7 +448,8 @@ function profileSheet(msg){
   hideGroups+=acc("hc_"+c.circle_id,esc(c.circles.emoji||"")+" "+esc(cname(c.circle_id,c.circles.name))+" <span class=\"where\" style=\"font-size:13px;font-weight:600\">"+ppl.length+(nh?" \u00b7 "+nh+" hidden":"")+"</span>",ppl.map(function(x){return hideRow({id:x.parent_id,display_name:x.display_name})}).join(""))});
  var hideOthers=contacts.filter(function(p){return !hideSeen[p.id]&&hiddenIds.indexOf(p.id)>-1});
  if(hideOthers.length)hideGroups+=acc("hc_other","Others you have hidden",hideOthers.map(hideRow).join(""));
- var hideList='<h2 style="font-size:18px;margin-top:22px">Hide my activities from</h2><p class="hint"><b>The gentle option.</b> Pick a circle, then tap Hide next to anyone. These people never see your activities or who replied to them. You still see theirs. They are not told. If someone is in two of your circles, hiding them hides them in both.</p>'
+ var hideList='<h2 style="font-size:18px;margin-top:22px">Hide my activities from</h2><p class="hint"><b>The gentle option.</b> Pick a circle, then tap Hide next to anyone. These people never see your activities or who replied to them. You still see theirs. They are not told. If someone is in two of your circles, hiding them hides them in both. People whose names are private to you are not listed.</p>'
+  +(Object.keys(circRoster).reduce(function(n,k){return n+circRoster[k].length},0)>=8?'<input id="hq" type="search" placeholder="Search names" autocomplete="off" aria-label="Search names" style="margin:8px 0">':'')
   +(hideGroups||(contacts.length?contacts.map(hideRow).join(""):'<p class="hint">People in your circles will appear here.</p>'));
  var dis=plans.filter(function(p){return dismissed.indexOf(p.id)>-1});
  var disList='<h2 style="font-size:18px;margin-top:22px">Hidden activities</h2><p class="hint">Activities you tapped Not for me on. The host is not told.</p>'
@@ -455,6 +460,7 @@ function profileSheet(msg){
  var strip=function(h){return h.replace(/^<h2[^>]*>.*?<\/h2>/,"")};
  setSheet(backBtn("close")+'<h2>Settings</h2>'+(msg?'<p class="hint">'+esc(msg)+'</p>':'')
  +'<div class="acc"><button class="acch" data-a="profilepage"><span>Profile</span><span class="chev" aria-hidden="true">&#8250;</span></button></div>'
+ +(typeof me.name_public==="boolean"?acc("nm","Who can see my name",'<p class="hint"><b>Off (recommended):</b> your name and the first names of the family members you bring along are shown only to people in circles you organise. The organiser of any circle you are in can always see them. Everyone else sees "A member". Totals such as "3 going" still count you.</p><p class="hint"><b>On:</b> everyone in your circles can see them.</p><button class="b sm'+(me.name_public?' on':'')+'" data-a="togglepublic">Show my name to everyone: '+(me.name_public?'On':'Off')+'</button>'):"")
  +acc("col","Card colours",'<p class="hint">Choose the colour for each kind of activity. It applies to all your cards, on this phone.</p>'+[["g","Going"],["m","Maybe"],["h","Activities I organise"]].map(function(r){return '<div style="margin:10px 0"><b>'+r[1]+'</b><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">'+SW.map(function(c){var on=cols[r[0]]===c;return '<button data-a="setcol" data-k="'+r[0]+'" data-v="'+c+'" aria-label="'+r[1]+' colour" aria-pressed="'+on+'" style="width:38px;height:38px;border-radius:50%;background:'+c+';border:3px solid '+(on?'var(--ink)':'transparent')+';color:#fff;font-size:18px;font-weight:800;cursor:pointer">'+(on?'\u2713':'')+'</button>'}).join("")+'</div></div>'}).join("")+'<button class="b sm" data-a="setcol" data-k="reset">Reset to default</button>')
  +acc("area","Ads near me",'<p class="hint">Optional. Type your town, area or postcode to see local sponsors, like a business near you. Spelling does not need to be perfect. This stays on this phone and is never sent to PopRound. If you leave it empty, PopRound may match place names on activities you can see to local sponsors, on your phone only. Sponsors never see your name, circles or activities.</p><label for="adarea">My town or area</label><input id="adarea" maxlength="40" autocomplete="off" placeholder="e.g. Milton Keynes or MK7" value="'+esc(adArea)+'"><button class="b sm on" data-a="saveadarea">Save</button> <button class="b sm" data-a="clearadarea">Clear</button>')
  +acc("push","Notifications",'<div id="pushbox"><p class="hint">Checking...</p></div>')
@@ -596,7 +602,7 @@ function draw(){
   var nl=function(a,tot){var n=fn(a),x=tot-a.length;return n?': '+esc(n)+(x>0?' +'+x:''):''};
   var cnt=(ng?'<b>'+ng+' going</b>'+nl(gs,ng):'')+(ng&&nm?' · ':'')+(nm?nm+' might pop by'+nl(ms,nm):'')||'No replies yet';
   var isNow=s<=now&&now<=e,ended=e<now,host=p.host_id===uid;
-  var canc=!!p.cancelled_at,hand=canc&&!!p.handover_until&&new Date(p.handover_until)>now,orig=(p.orig&&p.orig.display_name)||"The organiser";
+  var canc=!!p.cancelled_at,hand=canc&&!!p.handover_until&&new Date(p.handover_until)>now,orig=(p.orig&&p.orig.display_name)||(p.orig_host_id?"A member":"The organiser");
   var l1=party?"Maybe":"I might pop by",l2=party?"Going":"See you there";
   var pills=pcOf(p).map(function(c){var m=circles.find(function(x){return x.circle_id===c})||{circles:{}},ci=m.circles,col=ci.color||COLORS[0];return '<span class="cpill" style="background:'+esc(col)+';color:'+inkOn(col)+'">'+esc(ci.emoji||"👋")+' '+esc(cname(c,ci.name))+'</span>'}).join("");
   var statBtn=function(st,lbl,n){return n?'<button class="stat" data-a="whosheet" data-s="'+st+'" data-p="'+esc(p.id)+'">'+lbl+': '+n+'</button>':''};
@@ -612,7 +618,7 @@ function draw(){
   var tail=''
   +(canc?'<div class="where" style="color:var(--coral);font-weight:700;margin-top:8px">'+(host?'You cancelled this.':esc(orig)+' cancelled this.')+(hand?(host?' People who said they were going can keep it going until ':' You can keep it going until ')+tm(new Date(p.handover_until))+'.':'')+'</div>':'')+(!canc&&p.orig_host_id&&p.orig_host_id!==p.host_id?'<div class="where" style="font-size:12px;margin-top:6px">Originally planned by '+esc(orig)+'</div>':'')+(p.edited_at&&!ended&&!canc?'<div class="where" style="color:var(--coral);font-weight:700;margin-top:6px">Updated '+esc(ago(p.edited_at))+'</div>':'')
   +(clash.length?'<div class="where" style="color:#B3261E;font-weight:700;margin-top:8px">\u26A0 Clashes with '+clash.map(function(q){return esc(q.title)}).join(", ")+'</div>':'')
-  +'<div class="cfoot"><div class="where" style="font-size:13px"><b style="color:var(--ink)">'+esc(p.host&&p.host.display_name)+'</b>'+(p.created_at?' &nbsp;Sent '+esc(sentAt(p.created_at)):'')+'</div>'+btns+'</div>'
+  +'<div class="cfoot"><div class="where" style="font-size:13px"><b style="color:var(--ink)">'+esc(hostName(p))+'</b>'+(p.created_at?' &nbsp;Sent '+esc(sentAt(p.created_at)):'')+'</div>'+btns+'</div>'
   +(canc?(host?'':hand&&myR?'<button class="big" style="margin-top:10px" data-a="keepplan" data-p="'+esc(p.id)+'">Keep it going</button>':'<button class="link" style="font-size:13px;margin-top:8px" data-a="dismiss" data-p="'+esc(p.id)+'">Hide this</button>'):host?'':myR?'<div class="mine"><b>\u2713 '+(myR==="going"?"You\'re going":(party?"You said maybe":"You might pop by"))+'</b><button class="b sm" data-a="replysheet" data-p="'+esc(p.id)+'">Change</button></div>':'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px"><button class="b '+(myR==="maybe"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="maybe" data-p="'+esc(p.id)+'">'+l1+'</button><button class="b '+(myR==="going"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="going" data-p="'+esc(p.id)+'">'+l2+'</button><button class="b" style="font-size:13px;padding:9px 4px" data-a="dismiss" data-p="'+esc(p.id)+'">Not for me</button></div>')+(host||!myR||ended||canc?'':'<div class="where" style="margin-top:10px">'+(reminders[p.id]?'🔔 '+(new Date(reminders[p.id])>now?'Leave-by alert at ':'Leave-by alert was at ')+tm(new Date(reminders[p.id]))+(new Date(reminders[p.id])>now?' <button class="b sm" data-a="leavesheet" data-p="'+esc(p.id)+'">Change</button>':''):'<button class="b sm" data-a="leavesheet" data-p="'+esc(p.id)+'">🔔 Set a leave-by alert</button>')+'</div>')+(host||canc?'':'<button class="link" style="font-size:13px;margin-top:8px" data-a="safety" data-p="'+esc(p.id)+'">Report or block</button>');
   return head+(open?tail:'')+'</article>'});
  var spH=ap.length?sponsorCard():"",cards=(spH&&cardArr.length>3?cardArr.slice(0,3).concat([spH],cardArr.slice(3)):cardArr).join(""),spBottom=cardArr.length>3?"":spH;
@@ -727,7 +733,7 @@ async function act(b){
  else if(a==="clearjoin"){joinInfo=null;findSheet()}
  else if(a==="joincircle"){if(joinInfo.options&&!joinInfo.word){E("ce","Pick the secret word first.");return}
   var j=await sb.rpc("join_circle",{p_code:joinInfo.code,p_word:joinInfo.word,p_show_names:!!joinInfo.show});if(j.error){E("ce",j.error.message);return}
-  var already=j.data==="member";joinInfo=null;await load();circlesSheet(already?"You are already in that circle.":"Request sent. The organiser has to approve you.")}
+  var already=j.data==="member";joinInfo=null;await load();circlesSheet(already?"You are already in that circle.":"Request sent. The organiser has to approve you."+(me&&me.name_public===false?" Other members will not see your name or your family members' names until you turn on Show my name to everyone in Settings.":""))}
  else if(a==="opencircle"){await loadRoster(b.dataset.c);ckw=null;
   var oc=circles.find(function(x){return x.circle_id===b.dataset.c});
   if(oc&&oc.role==="organiser"){var gk=await sb.rpc("get_circle_keyword",{p_circle:b.dataset.c});ckw=gk.data&&gk.data[0]||null}
@@ -778,6 +784,7 @@ async function act(b){
  else if(a==="setcol"){if(b.dataset.k==="reset"){cols={g:CD.g,m:CD.m,h:CD.h}}else cols[b.dataset.k]=b.dataset.v;try{localStorage.setItem("pr_cols",JSON.stringify(cols))}catch(e){}draw();profOpen.col=true;profileSheet()}
  else if(a==="nudgesave"){var nz=v("nz");if(!nz){return}setAdArea(nz)}
  else if(a==="nudgeno"){try{localStorage.setItem("pr_adnudge","1")}catch(e){}draw()}
+ else if(a==="togglepublic"){var np=await sb.from("parents").update({name_public:!me.name_public}).eq("id",uid);if(np.error)throw np.error;me.name_public=!me.name_public;profOpen.nm=true;profileSheet(me.name_public?"Your name is now visible to everyone in your circles.":"Your name is now private.")}
  else if(a==="saveadarea"||a==="clearadarea"){setAdArea(a==="clearadarea"?"":v("adarea"));profOpen.area=true;profileSheet("Saved.")}
  else if(a==="sponsortap"){sb.rpc("sponsor_event",Object.assign({p_sponsor:b.dataset.s,p_kind:"tap"},adGeo(b.dataset.s))).then(function(){},function(){})}
  else if(a==="sponsorhide"){var hc=document.querySelector(".spons[data-sp]");if(hc)sb.rpc("sponsor_event",Object.assign({p_sponsor:hc.dataset.sp,p_kind:"hide"},adGeo(hc.dataset.sp))).then(function(){},function(){});sponsorHidden=true;draw()}

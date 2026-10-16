@@ -80,9 +80,9 @@ input,select,textarea{width:100%;font:inherit;padding:12px;border-radius:12px;bo
 .acc{border-top:1px solid var(--line)}
 .acch{width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;background:none;border:0;font:inherit;font-size:18px;font-weight:800;color:var(--ink);padding:14px 2px;cursor:pointer;text-align:left}
 .acch .chev{flex:none;transition:transform .15s;color:var(--mute)}
-.acc.open .chev{transform:rotate(90deg)}
+.acc.open>.acch .chev{transform:rotate(90deg)}
 .accb{display:none;padding:0 2px 14px}
-.acc.open .accb{display:block}
+.acc.open>.accb{display:block}.accb .acch{font-size:16px}.accb .acc:last-child{border-bottom:0}
 .rbtn{position:relative;flex:none;width:46px;height:46px;border-radius:50%;border:2px solid var(--ink);overflow:visible;background:var(--card);color:var(--ink);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
 .brand{display:flex;align-items:center;gap:8px;min-width:0}
 .brand img{width:34px;height:34px;border-radius:9px;flex:none}
@@ -165,7 +165,7 @@ var stars={},pickN={color:COLORS[0],emoji:"👋"},pickE={color:COLORS[0],emoji:"
 var sb,uid=null,me=null,kids=[],blocked=[],dismissed=[],safeT=null,circles=[],plans=[],replies=[],pending=[],sel="all",subscribed=false,toastFor=null,toastKind="New",timer=null;
 var SW=["#1F8A5F","#E8A400","#3B6FE0","#E4584A","#8A3FC0","#E0457B","#0E8F8F","#F08A24","#6C8FB8"],CD={g:"#1F8A5F",m:"#E8A400",h:"#3B6FE0"};
 var cols=(function(){var c={g:CD.g,m:CD.m,h:CD.h};try{var j=JSON.parse(localStorage.getItem("pr_cols")||"{}");["g","m","h"].forEach(function(k){if(SW.indexOf(j[k])>-1)c[k]=j[k]})}catch(e){}return c})(),cardOpen={};
-var sponsors=[],sponsorPick="",adArea=(function(){try{return localStorage.getItem("pr_adarea")||""}catch(e){return ""}})(),sponsorSeen={},sponsorHidden=false,pcs={},nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null,counts={},reminders={},ckw=null,profPriv={};
+var circRoster={},sponsors=[],sponsorPick="",adArea=(function(){try{return localStorage.getItem("pr_adarea")||""}catch(e){return ""}})(),sponsorSeen={},sponsorHidden=false,pcs={},nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null,counts={},reminders={},ckw=null,profPriv={};
 function daysLeft(ds){var e=new Date(ds+"T00:00:00"),t=new Date();t.setHours(0,0,0,0);return Math.round((e-t)/864e5)}
 function longDate(ds){return new Date(ds+"T00:00:00").toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short",year:"numeric"})}
 function endLabel(ds){if(!ds)return "No end date";var n=daysLeft(ds);if(n<0)return "Ended";if(n===0)return "Ends today";if(n===1)return "Ends tomorrow";if(n<=14)return "Ends in "+n+" days";return "Ends "+new Date(ds+"T00:00:00").toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"})}
@@ -256,6 +256,10 @@ if(r[13]&&r[13].error){try{r[13]=await sb.from("sponsors").select("id,name,headl
 }
 function approved(){return circles.filter(function(c){return c.status==="approved"&&c.circles&&!(c.circles.ends_on&&daysLeft(c.circles.ends_on)<0)})}
 async function loadContacts(){var pc=await sb.from("parents").select("id,display_name").neq("id",uid).order("display_name");var hh=await sb.from("hidden_from").select("hidden_id");contacts=pc.data||[];hiddenIds=(hh.data||[]).map(function(x){return x.hidden_id})}
+async function loadHideRosters(){
+ var cs=approved(),out={};
+ await Promise.all(cs.map(function(c){return sb.rpc("circle_roster",{p_circle:c.circle_id}).then(function(r){out[c.circle_id]=(r.data||[]).filter(function(x){return x.parent_id!==uid&&x.status==="approved"})},function(){})}));
+ circRoster=out}
 async function loadRoster(cid){var r=await sb.rpc("circle_roster",{p_circle:cid});if(r.error)throw r.error;roster=r.data||[]}
 function setupSheet(){
  setSheet('<h2>Welcome to PopRound</h2><p class="hint">Only people in circles you join will see this.</p><label for="sn">Your username (shown to people in your circles)</label><input id="sn" placeholder="Priya S."><label for="sk">Who usually comes along? First names, comma separated</label><input id="sk" placeholder="Aarav, Mia"><p class="hint">Just you? Add your own first name. You can add more people later in Settings.</p><div class="err" id="se"></div><button class="big" data-a="saveme">Continue</button>');
@@ -429,8 +433,16 @@ function replySheet(pid,msg){
   +'<button class="link" data-a="dismiss" data-p="'+esc(pid)+'">Not for me: hide this activity</button><p class="hint">Hidden activities are kept under Hidden on the home screen, so you can bring them back.</p><div class="err" id="re">'+esc(msg||"")+'</div>');
 }
 function profileSheet(msg){
- var hideList='<h2 style="font-size:18px;margin-top:22px">Hide my activities from</h2><p class="hint"><b>The gentle option.</b> These people never see your activities or who replied to them. You still see theirs. They are not told.</p>'
-  +(contacts.length?contacts.map(function(p){var h=hiddenIds.indexOf(p.id)>-1;return '<div class="req"><b>'+esc(p.display_name)+'</b><button class="b sm'+(h?' on':'')+'" data-a="hidetoggle" data-p="'+esc(p.id)+'">'+(h?'Hidden':'Hide')+'</button></div>'}).join(""):'<p class="hint">People in your circles will appear here.</p>');
+ var hideRow=function(p){var h=hiddenIds.indexOf(p.id)>-1;return '<div class="req"><b>'+esc(p.display_name)+'</b><button class="b sm'+(h?' on':'')+'" data-a="hidetoggle" data-p="'+esc(p.id)+'">'+(h?'Hidden':'Hide')+'</button></div>'};
+ var hideGroups="",hideSeen={};
+ sortedCircles().forEach(function(c){var ppl=circRoster[c.circle_id]||[];if(!ppl.length)return;
+  ppl.forEach(function(x){hideSeen[x.parent_id]=1});
+  var nh=ppl.filter(function(x){return hiddenIds.indexOf(x.parent_id)>-1}).length;
+  hideGroups+=acc("hc_"+c.circle_id,esc(c.circles.emoji||"")+" "+esc(cname(c.circle_id,c.circles.name))+" <span class=\"where\" style=\"font-size:13px;font-weight:600\">"+ppl.length+(nh?" \u00b7 "+nh+" hidden":"")+"</span>",ppl.map(function(x){return hideRow({id:x.parent_id,display_name:x.display_name})}).join(""))});
+ var hideOthers=contacts.filter(function(p){return !hideSeen[p.id]&&hiddenIds.indexOf(p.id)>-1});
+ if(hideOthers.length)hideGroups+=acc("hc_other","Others you have hidden",hideOthers.map(hideRow).join(""));
+ var hideList='<h2 style="font-size:18px;margin-top:22px">Hide my activities from</h2><p class="hint"><b>The gentle option.</b> Pick a circle, then tap Hide next to anyone. These people never see your activities or who replied to them. You still see theirs. They are not told. If someone is in two of your circles, hiding them hides them in both.</p>'
+  +(hideGroups||(contacts.length?contacts.map(hideRow).join(""):'<p class="hint">People in your circles will appear here.</p>'));
  var dis=plans.filter(function(p){return dismissed.indexOf(p.id)>-1});
  var disList='<h2 style="font-size:18px;margin-top:22px">Hidden activities</h2><p class="hint">Activities you tapped Not for me on. The host is not told.</p>'
   +(dis.length?dis.map(function(p){return '<div class="req"><div><b>'+esc(p.title)+'</b><div class="where">'+esc(dayLabel(new Date(p.starts_at)))+', '+tm(new Date(p.starts_at))+'</div></div><button class="b sm" data-a="undismiss" data-p="'+esc(p.id)+'">Show again</button></div>'}).join(""):'<p class="hint">None right now.</p>');
@@ -658,7 +670,7 @@ async function act(b){
   if(cr!==ss2){var sr3=await sb.from("plan_replies").upsert({plan_id:sp,parent_id:uid,status:ss2});if(sr3.error)throw sr3.error;await load()}
   var cl2=cr!==ss2?clashesFor(sp):[];if(cl2.length)clashSheet(sp,cl2);else replySheet(sp,"Updated. The host sees your new reply.")}
  else if(a==="removereply"){var rr2=await sb.from("plan_replies").delete().eq("plan_id",b.dataset.p).eq("parent_id",uid);if(rr2.error)throw rr2.error;setSheet("");toast("Reply taken back");await load()}
- else if(a==="profile"){await Promise.all([loadContacts(),loadBlocked()]);profileSheet()}
+ else if(a==="profile"){await Promise.all([loadContacts(),loadBlocked(),loadHideRosters()]);profileSheet()}
  else if(a==="profilepage"){profilePage()}
  else if(a==="rmkid"){if(kids.length<2){E("pre","Keep at least one name. Add the new name first, then remove the old one.");return}
   if(!confirm("Remove this name? Activities already posted keep the name they were posted with."))return;
@@ -732,7 +744,7 @@ async function act(b){
  else if(a==="hidetoggle"){var hp=b.dataset.p,isH=hiddenIds.indexOf(hp)>-1;
   var hr=isH?await sb.from("hidden_from").delete().eq("owner_id",uid).eq("hidden_id",hp):await sb.from("hidden_from").insert({owner_id:uid,hidden_id:hp});
   if(hr.error)throw hr.error;if(isH)hiddenIds=hiddenIds.filter(function(x){return x!==hp});else hiddenIds.push(hp);
-  b.textContent=isH?"Hide":"Hidden";b.className="b sm"+(isH?"":" on");toast(isH?"They can see your activities again.":"Hidden. They are not told.")}
+  document.querySelectorAll('[data-a="hidetoggle"]').forEach(function(x){if(x.dataset.p===hp){x.textContent=isH?"Hide":"Hidden";x.className="b sm"+(isH?"":" on")}});toast(isH?"They can see your activities again.":"Hidden. They are not told.")}
  else if(a==="safety"){
   if(b.dataset.p){var sp=plans.find(function(x){return x.id===b.dataset.p});if(!sp)return;safeT={user:sp.host_id,name:(sp.host&&sp.host.display_name)||"this person",plan:sp.id,circle:sp.circle_id,title:sp.title}}
   else{var sr=roster.find(function(x){return x.parent_id===b.dataset.u});safeT={user:b.dataset.u,name:sr?sr.display_name:"this person",plan:null,circle:b.dataset.c,title:null}}

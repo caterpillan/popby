@@ -437,7 +437,7 @@ function profileSheet(msg){
  setSheet(backBtn("close")+'<h2>Settings</h2>'+(msg?'<p class="hint">'+esc(msg)+'</p>':'')
  +'<div class="acc"><button class="acch" data-a="profilepage"><span>Profile</span><span class="chev" aria-hidden="true">&#8250;</span></button></div>'
  +acc("col","Card colours",'<p class="hint">Choose the colour for each kind of activity. It applies to all your cards, on this phone.</p>'+[["g","Going"],["m","Maybe"],["h","Activities I organise"]].map(function(r){return '<div style="margin:10px 0"><b>'+r[1]+'</b><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">'+SW.map(function(c){var on=cols[r[0]]===c;return '<button data-a="setcol" data-k="'+r[0]+'" data-v="'+c+'" aria-label="'+r[1]+' colour" aria-pressed="'+on+'" style="width:38px;height:38px;border-radius:50%;background:'+c+';border:3px solid '+(on?'var(--ink)':'transparent')+';color:#fff;font-size:18px;font-weight:800;cursor:pointer">'+(on?'\u2713':'')+'</button>'}).join("")+'</div></div>'}).join("")+'<button class="b sm" data-a="setcol" data-k="reset">Reset to default</button>')
- +acc("area","Ads near me",'<p class="hint">Optional. Type your town, area or postcode to see local sponsors, like a business near you. Spelling does not need to be perfect. This stays on this phone and is never sent to PopRound. Sponsors never see your name, circles or activities.</p><label for="adarea">My town or area</label><input id="adarea" maxlength="40" autocomplete="off" placeholder="e.g. Milton Keynes or MK7" value="'+esc(adArea)+'"><button class="b sm on" data-a="saveadarea">Save</button> <button class="b sm" data-a="clearadarea">Clear</button>')
+ +acc("area","Ads near me",'<p class="hint">Optional. Type your town, area or postcode to see local sponsors, like a business near you. Spelling does not need to be perfect. This stays on this phone and is never sent to PopRound. If you leave it empty, PopRound may match place names on activities you can see to local sponsors, on your phone only. Sponsors never see your name, circles or activities.</p><label for="adarea">My town or area</label><input id="adarea" maxlength="40" autocomplete="off" placeholder="e.g. Milton Keynes or MK7" value="'+esc(adArea)+'"><button class="b sm on" data-a="saveadarea">Save</button> <button class="b sm" data-a="clearadarea">Clear</button>')
  +acc("push","Notifications",'<div id="pushbox"><p class="hint">Checking...</p></div>')
  +acc("hide","Hide my activities from",strip(hideList))
  +acc("dis","Hidden activities"+(dis.length?" ("+dis.length+")":""),strip(disList))
@@ -495,7 +495,11 @@ function areaMatch(user,token){
  if(u.length>=5){var d=lev(u,t);if(d<=(u.length>=9?2:1))return true}
  return false}
 function adSplit(t){return String(t||"").split(",").map(function(x){return x.trim().toLowerCase()}).filter(Boolean)}
-function adToken(sp){var ar=adSplit(sp.target_areas);if(!adArea)return "";for(var i=0;i<ar.length;i++)if(areaMatch(adArea,ar[i]))return ar[i];return ""}
+function adToken(sp){var ar=adSplit(sp.target_areas),i;
+ if(adArea){for(i=0;i<ar.length;i++)if(areaMatch(adArea,ar[i]))return ar[i];return ""}
+ var pl=(typeof plans!=="undefined"&&plans||[]).map(function(p){return " "+nrm(p.place_name)+" "});
+ for(i=0;i<ar.length;i++){var t=nrm(ar[i]);if(t.length>=4&&pl.some(function(x){return x.indexOf(" "+t+" ")>-1}))return ar[i]}
+ return ""}
 function adGeo(id){var sp=sponsors.find(function(x){return x.id===id}),a=sp?adToken(sp):"";return{p_country:adCountry()||null,p_area:a||null}}
 function sponsorFits(sp){
  var ar=adSplit(sp.target_areas),co=adSplit(sp.target_countries);
@@ -510,11 +514,20 @@ function pickSponsor(){
  var pool=fit.length>1?fit.filter(function(x){return x.id!==last}):fit;
  var sp=pool[Math.floor(Math.random()*pool.length)];sponsorPick=sp.id;
  try{localStorage.setItem("pr_lastsp",sp.id)}catch(e){}return sp}
+var adDaysN=(function(){var n=0;try{var a=JSON.parse(localStorage.getItem("pr_days")||"[]"),t=new Date().toISOString().slice(0,10);if(a.indexOf(t)<0){a.push(t);a=a.slice(-10);localStorage.setItem("pr_days",JSON.stringify(a))}n=a.length}catch(e){}return n})();
+function nudgeCard(){
+ var no=false;try{no=!!localStorage.getItem("pr_adnudge")}catch(e){}
+ if(no||adArea||adDaysN<3||!sponsors.some(function(x){return adSplit(x.target_areas).length}))return "";
+ return '<div class="card nudge"><b>Want local offers?</b><p class="where" style="margin:4px 0 8px">Add your town or area to see sponsors near you. It stays on this phone.</p><div style="display:flex;gap:8px"><input id="nz" maxlength="40" autocomplete="off" placeholder="e.g. Milton Keynes or MK7" aria-label="Your town or area" style="flex:1;min-width:0"><button class="b sm on" data-a="nudgesave">Save</button></div><button class="link" style="font-size:13px" data-a="nudgeno">No thanks</button></div>'}
+function houseCard(){
+ var em=String(window.POPROUND_ADS_EMAIL||"").trim();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em))return "";
+ return '<div class="card spons"><div class="where" style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase">Sponsored</div><div style="display:flex;gap:12px;align-items:center;margin-top:8px"><span style="font-size:30px;flex:none;width:44px;text-align:center">\ud83d\udce3</span><span><b style="display:block">Your business here</b><span class="where">Reach local families in PopRound. Email '+esc(em)+'</span></span></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px"><span class="where" style="font-size:12px">Sponsors help keep PopRound free.</span><button class="link" style="font-size:12px;width:auto;padding:4px 8px" data-a="sponsorhide">Hide</button></div></div>'}
 function sponsorCard(){
- if(sponsorHidden||!sponsors.length)return "";
- var sp=pickSponsor();if(!sp)return "";
+ if(sponsorHidden)return "";
+ if(!sponsors.length)return nudgeCard()+houseCard();
+ var sp=pickSponsor();if(!sp)return nudgeCard()+houseCard();
  var img=sp.image_url&&/^https:\/\//.test(sp.image_url)?'<img src="'+esc(sp.image_url)+'" alt="" referrerpolicy="no-referrer" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'block\'" style="width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none"><span style="display:none;font-size:30px;flex:none;width:44px;text-align:center">'+esc(sp.emoji||"⭐")+'</span>':'<span style="font-size:30px;flex:none;width:44px;text-align:center">'+esc(sp.emoji||"\u2B50")+'</span>';
- return '<div class="card spons" data-sp="'+esc(sp.id)+'"><div class="where" style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase">Sponsored</div>'
+ return nudgeCard()+'<div class="card spons" data-sp="'+esc(sp.id)+'"><div class="where" style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase">Sponsored</div>'
   +'<a href="'+esc(sp.link_url)+'" target="_blank" rel="noopener sponsored" data-a="sponsortap" data-s="'+esc(sp.id)+'" style="display:flex;gap:12px;align-items:center;text-decoration:none;color:inherit;margin-top:8px">'+img+'<span><b style="display:block">'+esc(sp.headline)+'</b>'+(sp.body?'<span class="where">'+esc(sp.body)+'</span>':'')+'<span class="where" style="display:block;font-size:12px">'+esc(sp.name)+'</span></span></a>'
   +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px"><span class="where" style="font-size:12px">Sponsors help keep PopRound free. They never see your name, circles or activities.</span><button class="link" style="font-size:12px;width:auto;padding:4px 8px" data-a="sponsorhide">Hide</button></div></div>'}
 function clashesFor(pid){
@@ -743,6 +756,8 @@ async function act(b){
   if(ins.error)throw ins.error;setSheet("");toast(pcl.length>1?"Sent. Your circles have been notified.":"Sent. Your circle has been notified.");await load()}
  else if(a==="togglecard"){var tp=b.dataset.p,tcur=cardOpen.hasOwnProperty(tp)?cardOpen[tp]:null;if(tcur===null){var tb=b.closest("article");tcur=!!tb&&!!tb.querySelector(".cfoot")}cardOpen[tp]=!tcur;draw()}
  else if(a==="setcol"){if(b.dataset.k==="reset"){cols={g:CD.g,m:CD.m,h:CD.h}}else cols[b.dataset.k]=b.dataset.v;try{localStorage.setItem("pr_cols",JSON.stringify(cols))}catch(e){}draw();profOpen.col=true;profileSheet()}
+ else if(a==="nudgesave"){var nz=v("nz");if(!nz){return}setAdArea(nz)}
+ else if(a==="nudgeno"){try{localStorage.setItem("pr_adnudge","1")}catch(e){}draw()}
  else if(a==="saveadarea"||a==="clearadarea"){setAdArea(a==="clearadarea"?"":v("adarea"));profOpen.area=true;profileSheet("Saved.")}
  else if(a==="sponsortap"){sb.rpc("sponsor_event",Object.assign({p_sponsor:b.dataset.s,p_kind:"tap"},adGeo(b.dataset.s))).then(function(){},function(){})}
  else if(a==="sponsorhide"){var hc=document.querySelector(".spons[data-sp]");if(hc)sb.rpc("sponsor_event",Object.assign({p_sponsor:hc.dataset.sp,p_kind:"hide"},adGeo(hc.dataset.sp))).then(function(){},function(){});sponsorHidden=true;draw()}

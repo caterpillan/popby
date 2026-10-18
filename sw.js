@@ -1,7 +1,7 @@
 // PopRound service worker: lets the app install and open offline (the shell only).
 // Network first, so new versions show up as soon as you're online. Data calls to Supabase are never cached.
-const CACHE = "popround-v4";
-const SHELL = ["./", "index.html", "manifest.webmanifest", "icon.svg"];
+const CACHE = "popround-v5";
+const SHELL = ["./", "index.html", "manifest.webmanifest", "icon.svg", "privacy.html", "terms.html", "rules.html"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));

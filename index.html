@@ -73,6 +73,10 @@ input,select,textarea{width:100%;font:inherit;padding:12px;border-radius:12px;bo
 .bub{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;font-size:24px;color:#fff;font-weight:800;line-height:1}
 .crow{display:flex;gap:12px;overflow-x:auto;padding:6px 4px 10px;margin:0 -4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .crow::-webkit-scrollbar{display:none}
+.cw{flex:none;width:80px;display:flex;flex-direction:column;align-items:center;gap:3px}
+.cnote{font-size:11px;font-weight:600;color:var(--mute);text-align:center;line-height:1.15}.cnote.soon{color:var(--coral);font-weight:800}
+.tsel{display:flex;gap:6px;align-items:center}.tsel select{flex:1;min-width:0}
+.cc{font-size:12px;color:var(--mute);text-align:right;margin-top:2px}
 .cb{position:relative;flex:none;width:80px;height:80px;border:3px solid transparent;border-radius:50%;background:none;padding:0;cursor:pointer}
 .cb[aria-pressed=true]{border-color:var(--ink)}
 .cbub{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;padding:5px 6px;gap:1px;text-align:center;box-sizing:border-box}
@@ -140,6 +144,14 @@ function parseDate(t){t=(t||"").toLowerCase().replace(/,/g," ").replace(/(\d)(st
  if(!yy&&dt<new Date(y,now.getMonth(),now.getDate()))dt=new Date(y+1,m-1,d);
  if(dt.getMonth()!==m-1)return null;
  return dt.getFullYear()+"-"+pad(dt.getMonth()+1)+"-"+pad(dt.getDate())}
+var RUDE=["arse","arsehole","arseholes","asshole","assholes","bastard","bastards","bellend","bitch","bitches","bitching","bitchy","blowjob","bollocks","boob","boobies","boobs","bullshit","cameltoe","chink","cocksucker","coon","cunt","cunts","dick","dickface","dickhead","dicks","dildo","dyke","faggot","faggots","fuck","fucked","fucker","fuckers","fuckface","fuckhead","fuckin","fucking","fucks","fuckwit","gook","handjob","jizz","kike","motherfucker","motherfuckers","nigga","nigger","niggers","paki","piss","pissed","porn","prick","pricks","pussy","retard","retards","shit","shite","shitface","shithead","shits","shitty","skank","slag","slut","sluts","spastic","spic","tit","tits","titties","titty","tosser","tranny","twat","twats","wank","wanker","wankers","whore","whores"];
+function rudeWord(t){var w=(t||"").toLowerCase().replace(/[013457@$]/g,function(c){return {"0":"o","1":"i","3":"e","4":"a","5":"s","7":"t","@":"a","$":"s"}[c]||c}).replace(/[^a-z]+/g," ").split(" ").filter(Boolean),run="";for(var i=0;i<=w.length;i++){var x=w[i];if(x&&x.length===1)run+=x;else{if(run.length>1&&RUDE.indexOf(run)>-1)return true;run="";if(x&&RUDE.indexOf(x)>-1)return true}}return false}
+function rudeCheck(ids,errId){for(var i=0;i<ids.length;i++){var el=$(ids[i]);if(el&&rudeWord(el.value)){var ee=$(errId);if(ee)ee.textContent="Please reword that. PopRound keeps names and activities family-friendly.";return true}}return false}
+function timeSel(id,hhmm,opt){var h=hhmm?hhmm.slice(0,2):"",m=hhmm?hhmm.slice(3,5):"",ho=opt?'<option value=""'+(h===""?' selected':'')+'>--</option>':'',mo=["00","15","30","45"];if(m&&mo.indexOf(m)<0){mo.push(m);mo.sort()}
+ for(var i=0;i<24;i++){var x=pad(i);ho+='<option value="'+x+'"'+(x===h?' selected':'')+'>'+x+'</option>'}
+ return '<div class="tsel"><select data-ts="'+id+'" data-tp="h" aria-label="Hour (24 hour)">'+ho+'</select><b>:</b><select data-ts="'+id+'" data-tp="m" aria-label="Minutes">'+mo.map(function(x){return '<option value="'+x+'"'+(x===m?' selected':'')+'>'+x+'</option>'}).join("")+'</select><input type="hidden" id="'+id+'" value="'+(hhmm||"")+'"></div>'}
+function qtr(d){var t=new Date(d.getTime());t.setSeconds(0,0);var m=t.getMinutes(),r=Math.ceil(m/15)*15;t.setMinutes(r);return pad(t.getHours())+":"+pad(t.getMinutes())}
+document.addEventListener("change",function(e){var t=e.target;if(!t||!t.dataset||!t.dataset.ts)return;var id=t.dataset.ts,hs=document.querySelector('#sheet [data-ts="'+id+'"][data-tp="h"]'),ms=document.querySelector('#sheet [data-ts="'+id+'"][data-tp="m"]'),hid=$(id);if(!hs||!ms||!hid)return;hid.value=hs.value===""?"":hs.value+":"+ms.value;unflash();endHint()});
 function buildTimes(dd,ft,ut){
  var tf=parseTime(ft);if(!tf)return{err:"Type the start time like 10am or 2:30pm."};
  var s=new Date(dd+"T"+tf);
@@ -155,7 +167,7 @@ function endHint(){
  else{var tu=parseTime(ut);if(ft&&tu&&dd){var s=new Date(dd+"T"+ft),e=new Date(dd+"T"+tu);if(e<s)msg="Ends the next day at "+tm(e)+"."}}
  $(pre[3]).textContent=msg}
 document.addEventListener("input",function(e){var t=e.target;if(t&&t.id==="hq"){var q=nrm(t.value);[].forEach.call(document.querySelectorAll("#sheet [data-nm]"),function(r){r.style.display=!q||r.dataset.nm.indexOf(q)>-1?"":"none"});[].forEach.call(document.querySelectorAll("#sheet .acc"),function(g){var b=g.querySelector(".acch");if(!b||!/^hc_/.test(b.dataset.k||""))return;var vis=[].filter.call(g.querySelectorAll("[data-nm]"),function(r){return r.style.display!=="none"}).length;g.style.display=(vis||!q)?"":"none";if(q&&vis){g.classList.add("open");profOpen[b.dataset.k]=true}})}});
-document.addEventListener("input",function(e){if(e.target&&/^(pf|pe|pd|ef|ee|ed2)$/.test(e.target.id))endHint()});
+document.addEventListener("input",function(e){if(e.target&&/^(pf|pe|pd|ef|ee|ed2)$/.test(e.target.id))endHint();if(e.target&&/^(pn|en)$/.test(e.target.id)){var cc=$(e.target.id+"_c");if(cc)cc.textContent=e.target.value.length+" / 140"}});
 function parseTime(t){t=(t||"").toLowerCase().replace(/\./g,"").trim();var m=t.match(/^(\d{1,2})(?:[:\s]?(\d{2}))?\s*(am|pm|a|p)?$/);if(!m)return null;var h=+m[1],mi=m[2]?+m[2]:0,ap=m[3];if(mi>59)return null;
  if(ap){if(h<1||h>12)return null;if(ap[0]==="p"&&h<12)h+=12;if(ap[0]==="a"&&h===12)h=0}else if(h>23)return null;
  return pad(h)+":"+pad(mi)}
@@ -289,11 +301,11 @@ function planSheet(){
  +whoBoxes()
  +'<label for="pt">What\'s the activity?</label><input id="pt" placeholder="Playground">'
  +'<label for="pw">Where</label><input id="pw" placeholder="Meeting spot or address">'
- +'<div class="two"><div><label for="pf">From</label><input id="pf" type="text" inputmode="text" autocomplete="off" value="10:00 am" placeholder="e.g. 10am or 2:30pm"></div><div><label for="pe">Until (optional)</label><input id="pe" type="text" inputmode="text" autocomplete="off" value="" placeholder="Empty = until it ends"></div></div>'
+ +'<div class="two"><div><label>From (24 hour)</label>'+timeSel("pf",qtr(new Date()),false)+'</div><div><label>Until (optional)</label>'+timeSel("pe","",true)+'</div></div>'
  +'<label for="pd">Day</label><input id="pd" type="text" inputmode="text" autocomplete="off" placeholder="e.g. 12 Oct, 12/10 or tomorrow" value="'+fmtDate(todayStr())+'"><button type="button" class="b sm" data-a="cal" data-t="pd" style="margin-top:6px">Calendar</button><input type="date" id="pd_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none"><div style="display:flex;gap:6px;margin:8px 0"><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="0" data-keep="1">Today</button><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="1" data-keep="1">Tomorrow</button><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="2" data-keep="1">In 2 days</button></div>'
  +'<p class="hint" id="pend"></p><label>Share with</label><p class="hint" style="margin-top:0">Tick one or more circles. Only people in those circles will see it, and they get an alert. Someone in several of them sees it once.</p><div class="card" style="padding:6px 12px" id="pcs">'+sortedCircles().map(function(c,i){var on=sel!=="all"?c.circle_id===sel:i===0;return '<label style="display:flex;align-items:center;gap:10px;margin:6px 0;font-weight:600"><input type="checkbox" style="width:22px;height:22px;flex:none" data-pc="'+esc(c.circle_id)+'"'+(on?' checked':'')+'><span>'+esc(cname(c.circle_id,c.circles.name))+'</span></label>'}).join("")+'</div>'
  +'<details style="margin-top:12px"><summary style="font-weight:600;cursor:pointer">Hide from specific people (optional)</summary><p class="hint">They will not see this activity or who replied. They are not told. People you always hide are ticked already.</p><div id="hidelist" class="card" style="padding:6px 12px;margin-top:8px"><p class="hint">Loading...</p></div></details>'
- +'<label for="pn">Note (optional)</label><textarea id="pn" rows="2" placeholder="Come if you\'re free!"></textarea><div class="err" id="pe2"></div>'
+ +'<label for="pn">Note (optional)</label><textarea id="pn" rows="2" maxlength="140" placeholder="Come if you\'re free!"></textarea><div class="cc" id="pn_c">0 / 140</div><div class="err" id="pe2"></div>'
  +'<button class="big" data-a="sendplan">Send</button><button class="link" data-a="close">Cancel</button>');
  endHint();
  planHides=[];fillHideList(pickedCircles(),[]);
@@ -339,7 +351,7 @@ function circleSheet(cid,msg){
  var org=c.role==="organiser",ci=c.circles;
  var act=roster.filter(function(r){return r.status==="approved"}),gone=roster.filter(function(r){return r.status==="removed"});
  if(org)pickE={color:ci.color||COLORS[0],emoji:ci.emoji||"👋"};
- var code='<div class="code">'+esc(ci.invite_code)+'</div><p class="hint">Share this code so people can ask to join. You approve each person'+(ckw?', and they also need the secret word':'')+'.</p>';
+ var code='<div class="code">'+esc(ci.invite_code)+'</div><button class="big" data-a="sharecode" data-c="'+esc(cid)+'">Share this code</button><p class="hint">Share this code so people can ask to join. You approve each person'+(ckw?', and they also need the secret word':'')+'.</p>';
  var mem='<div class="card" style="margin-top:6px">'+act.map(function(r){
    return '<div class="req"><div><b>'+esc(r.display_name)+(r.parent_id===uid?' (you)':'')+'</b><div class="where">'+(r.role==="organiser"?"Organiser":"Member")+'</div></div>'
    +(r.parent_id&&r.parent_id!==uid?'<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'+(org&&r.role!=="organiser"?'<button class="b sm" data-a="mkorg" data-c="'+esc(cid)+'" data-p="'+esc(r.parent_id)+'">Make organiser</button> <button class="b sm del" data-a="rmmem" data-c="'+esc(cid)+'" data-p="'+esc(r.parent_id)+'">Remove</button>':'')+'<button class="b sm" data-a="safety" data-u="'+esc(r.parent_id)+'" data-c="'+esc(cid)+'">Report / block</button></div>':'')+'</div>'}).join("")+'</div>';
@@ -417,12 +429,13 @@ function acc(k,title,body){var o=!!profOpen[k];return '<div class="acc'+(o?' ope
 function backBtn(a,p){return '<button class="backb" data-a="'+a+'"'+(p?' data-p="'+esc(p)+'"':'')+' aria-label="Back">&#8592;</button>'}
 function flash(sel,label){var el=document.querySelector("#sheet "+sel);if(!el)return;el.dataset.orig=el.textContent;el.textContent=label||"Saved \u2713";el.classList.add("saved");el.disabled=true;clearTimeout(flash.t);flash.t=setTimeout(unflash,3000)}
 function unflash(){[].forEach.call(document.querySelectorAll("#sheet .saved"),function(e){e.textContent=e.dataset.orig||"Save";e.classList.remove("saved");e.disabled=false})}
+function circleNote(ds){if(!ds)return '';var n=daysLeft(ds);if(n<0||n>30)return '';return '<span class="cnote'+(n<=7?' soon':'')+'">'+(n===0?'Ends today':n===1?'Ends tomorrow':'Ends in '+n+' days')+'</span>'}
 function circleRow(sc,now){
  var cnt=function(cid){return plans.filter(function(p){return pcOf(p).indexOf(cid)>-1&&new Date(p.ends_at)>=now&&dismissed.indexOf(p.id)<0}).length};
  return '<nav class="crow" id="crow" aria-label="Your circles">'
-  +'<button class="cb" data-a="sel" data-c="all" aria-label="All circles" aria-pressed="'+(sel==="all")+'"><span class="cbub" style="background:var(--ink);color:var(--bg)"><span class="n" style="font-size:16px">All</span></span></button>'
-  +sc.map(function(c){var ci=c.circles,n=cnt(c.circle_id),col=ci.color||COLORS[0],nm=cname(c.circle_id,ci.name);return '<button class="cb" data-a="sel" data-c="'+esc(c.circle_id)+'" aria-label="'+esc(nm)+'" aria-pressed="'+(sel===c.circle_id)+'"><span class="cbub" style="background:'+esc(col)+';color:'+inkOn(col)+'"><span class="e">'+esc(ci.emoji||"\ud83d\udc4b")+'</span><span class="n">'+esc(nm)+'</span></span>'+(n?'<span class="cnt">'+n+'</span>':'')+(stars[c.circle_id]?'<span class="stm">&#9733;</span>':'')+'</button>'}).join("")
-  +'<button class="cb add" data-a="circles" aria-label="Find, create or manage circles"><span class="cbub"><span class="e">+</span><span class="n">Circles</span></span></button></nav>'}
+  +'<div class="cw"><button class="cb" data-a="sel" data-c="all" aria-label="All circles" aria-pressed="'+(sel==="all")+'"><span class="cbub" style="background:var(--ink);color:var(--bg)"><span class="n" style="font-size:16px">All</span></span></button></div>'
+  +sc.map(function(c){var ci=c.circles,n=cnt(c.circle_id),col=ci.color||COLORS[0],nm=cname(c.circle_id,ci.name);return '<div class="cw"><button class="cb" data-a="sel" data-c="'+esc(c.circle_id)+'" aria-label="'+esc(nm)+'" aria-pressed="'+(sel===c.circle_id)+'"><span class="cbub" style="background:'+esc(col)+';color:'+inkOn(col)+'"><span class="e">'+esc(ci.emoji||"\ud83d\udc4b")+'</span><span class="n">'+esc(nm)+'</span></span>'+(n?'<span class="cnt">'+n+'</span>':'')+(stars[c.circle_id]?'<span class="stm">&#9733;</span>':'')+'</button>'+circleNote(ci.ends_on)+'</div>'}).join("")
+  +'<div class="cw"><button class="cb add" data-a="circles" aria-label="Find, create or manage circles"><span class="cbub"><span class="e">+</span><span class="n">Circles</span></span></button></div></nav>'}
 function hiddenSheet(msg){
  var dis=plans.filter(function(p){return dismissed.indexOf(p.id)>-1});
  setSheet(backBtn("close")+'<h2>Hidden activities</h2><p class="hint">Activities you tapped Not for me on. The host is not told. Bring one back to see it on your home screen again.</p>'
@@ -489,13 +502,13 @@ function editSheet(pid){
  setSheet('<h2>Edit activity</h2><p class="hint">Everyone in the circle sees an Updated badge and gets a notice.</p>'
  +'<label for="et">What\'s the activity?</label><input id="et" value="'+esc(p.title)+'">'
  +'<label for="ew">Where</label><input id="ew" value="'+esc(p.place_name)+'">'
- +'<div class="two"><div><label for="ef">From</label><input id="ef" type="text" autocomplete="off" value="'+t12(s)+'"></div><div><label for="ee">Until (optional)</label><input id="ee" type="text" autocomplete="off" value="'+(p.open_ended?"":t12(e))+'" placeholder="Empty = until it ends"></div></div>'
+ +'<div class="two"><div><label>From (24 hour)</label>'+timeSel("ef",pad(s.getHours())+":"+pad(s.getMinutes()),false)+'</div><div><label>Until (optional)</label>'+timeSel("ee",p.open_ended?"":pad(e.getHours())+":"+pad(e.getMinutes()),true)+'</div></div>'
  +'<label for="ed2">Day</label><input id="ed2" type="text" autocomplete="off" placeholder="e.g. 12 Oct, 12/10 or tomorrow" value="'+fmtDate(iso)+'">'
  +'<button type="button" class="b sm" data-a="cal" data-t="ed2" style="margin-top:6px">Calendar</button><input type="date" id="ed2_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none">'
  +'<p class="hint" id="eend"></p>'+whoBoxes((p.who_names||(p.child&&p.child.first_name)||"").split(", "))+'<details style="margin-top:12px"><summary style="font-weight:600;cursor:pointer">Hide from specific people (optional)</summary><p class="hint">They will not see this activity or who replied. They are not told.</p><div id="hidelist" class="card" style="padding:6px 12px;margin-top:8px"><p class="hint">Loading...</p></div></details>'
  +(function(){var cur=pcs[p.id]||[p.circle_id],more=sortedCircles().filter(function(c){return cur.indexOf(c.circle_id)<0});
    return more.length?'<details style="margin-top:12px"><summary style="font-weight:600;cursor:pointer">Share with more circles (optional)</summary><p class="hint">People in the circles you add get an alert. You can add circles but not take them away.</p><div class="card" style="padding:6px 12px">'+more.map(function(c){return '<label style="display:flex;align-items:center;gap:10px;margin:6px 0;font-weight:600"><input type="checkbox" style="width:22px;height:22px;flex:none" data-pc="'+esc(c.circle_id)+'"><span>'+esc(cname(c.circle_id,c.circles.name))+'</span></label>'}).join("")+'</div></details>':''})()
- +'<label for="en">Note (optional)</label><textarea id="en" rows="2">'+esc(p.note||"")+'</textarea><div class="err" id="ee2"></div>'
+ +'<label for="en">Note (optional)</label><textarea id="en" rows="2" maxlength="140">'+esc((p.note||"").slice(0,140))+'</textarea><div class="cc" id="en_c">'+Math.min(140,(p.note||"").length)+' / 140</div><div class="err" id="ee2"></div>'
  +'<button class="big" data-a="saveplan" data-p="'+esc(pid)+'">Save and notify</button><button class="link" data-a="close">Cancel</button>');
  endHint();fillHideList(pcOf(p),planHides);
 }
@@ -572,10 +585,10 @@ function clashSheet(pid,list){
 }
 function whoSheet(pid,st){
  var p=plans.find(function(x){return x.id===pid});if(!p)return;
- var rs=replies.filter(function(r){return r.plan_id===pid&&r.status===st}),tot=Math.max(((counts[pid]||{})[st])||0,rs.length),other=tot-rs.length;
+ var rs=replies.filter(function(r){return r.plan_id===pid&&r.status===st}),hn=(st==="going"&&!p.cancelled_at)?1:0,hshow=hn&&p.host&&p.host.display_name,tot=Math.max(((counts[pid]||{})[st])||0,rs.length)+hn,other=tot-rs.length-(hshow?1:0);
  var lbl=st==="going"?"Going":"Maybe";
- var rows=rs.map(function(r){var nm=(r.parents&&r.parents.display_name)||"Someone";return '<div class="req"><b>'+esc(nm)+(r.parent_id===uid?' <span class="where">(you)</span>':'')+'</b></div>'}).join("");
- var note=other>0?'<p class="hint">'+(rs.length?'+ '+other+' other '+(other===1?'person':'people'):other+(other===1?' person':' people'))+' who chose not to show their name'+(other===1?'':'s')+'.</p>':'';
+ var rows=(hshow?'<div class="req"><b>'+esc(p.host.display_name)+(p.host_id===uid?' <span class="where">(you)</span>':'')+' <span class="where">organiser</span></b></div>':'')+rs.map(function(r){var nm=(r.parents&&r.parents.display_name)||"Someone";return '<div class="req"><b>'+esc(nm)+(r.parent_id===uid?' <span class="where">(you)</span>':'')+'</b></div>'}).join("");
+ var note=other>0?'<p class="hint">'+(rs.length||hshow?'+ '+other+' other '+(other===1?'person':'people'):other+(other===1?' person':' people'))+' who chose not to show their name'+(other===1?'':'s')+'.</p>':'';
  setSheet(backBtn("close")+'<h2>'+lbl+' · '+esc(p.title)+'</h2>'+(rows?'<div class="card" style="padding:6px 14px">'+rows+'</div>':'')+note+(!rows&&!note?'<p class="hint">No one yet.</p>':''));
 }
 function cancelSheet(pid){
@@ -598,9 +611,9 @@ function draw(){
   var rs=replies.filter(function(r){return r.plan_id===p.id}),myR=(rs.find(function(r){return r.parent_id===uid})||{}).status;
   var gs=rs.filter(function(r){return r.status==="going"}),ms=rs.filter(function(r){return r.status==="maybe"});
   var fn=function(a){return a.map(function(r){return(r.parents&&r.parents.display_name||"").split(" ")[0]}).join(", ")};
-  var C=counts[p.id]||{},ng=Math.max(C.going||0,gs.length),nm=Math.max(C.maybe||0,ms.length);
+  var C=counts[p.id]||{},hg=p.cancelled_at?0:1,gs2=(hg&&p.host&&p.host.display_name)?[{parents:p.host}].concat(gs):gs,ng=Math.max(C.going||0,gs.length)+hg,nm=Math.max(C.maybe||0,ms.length);
   var nl=function(a,tot){var n=fn(a),x=tot-a.length;return n?': '+esc(n)+(x>0?' +'+x:''):''};
-  var cnt=(ng?'<b>'+ng+' going</b>'+nl(gs,ng):'')+(ng&&nm?' · ':'')+(nm?nm+' might pop by'+nl(ms,nm):'')||'No replies yet';
+  var cnt=(ng?'<b>'+ng+' going</b>'+nl(gs2,ng):'')+(ng&&nm?' · ':'')+(nm?nm+' might pop by'+nl(ms,nm):'')||'No replies yet';
   var isNow=s<=now&&now<=e,ended=e<now,host=p.host_id===uid;
   var canc=!!p.cancelled_at,hand=canc&&!!p.handover_until&&new Date(p.handover_until)>now,orig=(p.orig&&p.orig.display_name)||(p.orig_host_id?"A member":"The organiser");
   var l1=party?"Maybe":"I might pop by",l2=party?"Going":"See you there";
@@ -625,7 +638,6 @@ function draw(){
  $("app").innerHTML='<div class="head"><button class="rbtn" data-a="circles" aria-label="Circles'+(pending.length?', '+pending.length+' waiting for approval':'')+'"><img src="icon.svg" alt="" style="width:100%;height:100%;border-radius:50%;display:block">'+(pending.length?'<span class="cnt">'+pending.length+'</span>':'')+'</button><div class="brand"><h1>PopRound</h1></div><button class="rbtn" data-a="profile" aria-label="Settings"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div><p class="sub">Hi '+esc(me.display_name.replace(/\.$/,''))+'. No invites, no pressure. Just: we\'ll be here.</p>'
   +(ap.length?circleRow(sc,now):'')
   +(ap.length&&sel!=="all"?'<p class="hint" style="margin:0 0 8px">Showing <b>'+esc(cname(sel,(ap.find(function(c){return c.circle_id===sel})||{circles:{}}).circles.name))+'</b>. Tap All to see everything.</p>':'')
-  +ap.filter(function(c){return c.circles.ends_on&&daysLeft(c.circles.ends_on)<=7&&(sel==="all"||sel===c.circle_id)}).map(function(c){return '<p class="hint">'+esc(cname(c.circle_id,c.circles.name))+': '+esc(endLabel(c.circles.ends_on).toLowerCase())+'. Its activities disappear after that.</p>'}).join("")
   +(cards||'<div class="empty">'+(ap.length?"Nothing planned yet.<br>Tap “Share an activity” to tell your circle where you’ll be.":"Create a circle, or join one with a code. A new member is approved by the organiser first.")+'</div>')
   +spBottom
   +(hn?'<div style="text-align:center;margin:10px 0 20px"><button class="link" style="width:auto;padding:8px 14px" data-a="hidden">Hidden activities ('+hn+')</button></div>':'')
@@ -659,6 +671,7 @@ async function act(b){
  else if(a==="signout"){try{var ps=await pushState();if(ps.sub){await sb.rpc("drop_push_sub",{p_endpoint:ps.sub.endpoint});await ps.sub.unsubscribe()}}catch(e3){}await sb.auth.signOut();subscribed=false;sb.removeAllChannels()}
  else if(a==="saveme"){var n=v("sn"),k=v("sk").split(",").map(function(x){return x.trim()}).filter(Boolean);
   if(!n||!k.length){E("se","Enter a username and at least one first name.");return}
+  if(rudeCheck(["sn","sk"],"se"))return;
   var r1=await sb.from("parents").upsert({id:uid,display_name:n});if(r1.error)throw r1.error;
   var r2=await sb.from("children").insert(k.map(function(x){return{parent_id:uid,first_name:x,kind:"child"}}));if(r2.error)throw r2.error;
   setSheet("");await load();await notifyIntro()}
@@ -685,6 +698,7 @@ async function act(b){
   if(!confirm("Remove this name? Activities already posted keep the name they were posted with."))return;
   var rk=await sb.from("children").delete().eq("id",b.dataset.k);if(rk.error)throw rk.error;await load();profilePage()}
  else if(a==="saveprofile"){var nm=v("pn1");if(!nm){E("pre","Your name can't be empty.");return}
+  if(rudeCheck(["pn1"],"pre")||[].some.call(document.querySelectorAll("#sheet [data-kid]"),function(x){return rudeWord(x.value)})){E("pre","Please reword that. PopRound keeps names and activities family-friendly.");return}
   var ins=document.querySelectorAll("#sheet [data-kid]");
   for(var j=0;j<ins.length;j++){if(!ins[j].value.trim()){E("pre","A name can't be empty. Use Remove to delete one.");return}}
   var u1=await sb.from("parents").update({display_name:nm}).eq("id",uid);if(u1.error)throw u1.error;
@@ -696,6 +710,7 @@ async function act(b){
   await load();profilePage("Saved.");flash('[data-a="saveprofile"]')}
  else if(a==="newplan"){if(!contacts.length)await loadContacts();planSheet()}
  else if(a==="mkcircle"){var cn=v("cn");if(!cn){E("ce","Give your circle a name.");return}
+  if(rudeCheck(["cn"],"ce"))return;
   var kw0=v("kw"),kd0=["kd1","kd2","kd3"].map(v).filter(Boolean);
   if(kw0&&kd0.length<2){E("ce","Add at least 2 decoy words for the secret word check, or clear the secret word.");return}
   if(!kw0&&kd0.length){E("ce","Add the secret word too, or clear the decoy words.");return}
@@ -714,6 +729,10 @@ async function act(b){
   ckw={secret:kw,decoys:kds};circleSheet(b.dataset.c,"Saved. Tell people the secret word yourself.");flash('[data-a="savekw"]')}
  else if(a==="clearkw"){if(!confirm("Turn off the secret word check? Anyone with the code will be able to ask to join (you still approve them)."))return;
   var kc=await sb.rpc("clear_circle_keyword",{p_circle:b.dataset.c});if(kc.error)throw kc.error;ckw=null;circleSheet(b.dataset.c,"Secret word check is off.")}
+ else if(a==="sharecode"){var sc2=circles.find(function(x){return x.circle_id===b.dataset.c});if(!sc2||!sc2.circles)return;
+  var link=location.origin+location.pathname.replace(/index\.html$/,""),txt="Join my circle \u201c"+cname(sc2.circle_id,sc2.circles.name)+"\u201d on PopRound. Code: "+sc2.circles.invite_code+"\n"+link;
+  if(navigator.share){try{await navigator.share({title:"Join my PopRound circle",text:txt})}catch(er){if(er&&er.name!=="AbortError"){}}}
+  else{try{await navigator.clipboard.writeText(txt);toast("Copied. Paste it into WhatsApp, email or a text.")}catch(er){toast("Code: "+sc2.circles.invite_code)}}}
  else if(a==="leavesheet"){leaveSheet(b.dataset.p)}
  else if(a==="lq"){var lp=plans.find(function(x){return x.id===b.dataset.p});if(lp)$("lt").value=tm(new Date(new Date(lp.starts_at).getTime()-(+b.dataset.n)*60000))}
  else if(a==="saveleave"){var lp2=plans.find(function(x){return x.id===b.dataset.p});if(!lp2)return;
@@ -748,7 +767,7 @@ async function act(b){
  else if(a==="saveend"){var ED2=null;if(v("ed")){ED2=parseDate(v("ed"));if(!ED2||ED2<todayStr()){E("ce3","Type the end date like 12 Oct or 12/10/2026, in the future.");return}}
   var se=await sb.rpc("set_circle_end",{p_circle:b.dataset.c,p_ends:ED2});if(se.error){E("ce3",se.error.message);return}
   await load();await loadRoster(b.dataset.c);circleSheet(b.dataset.c,"End date saved.");flash('[data-a="saveend"]')}
- else if(a==="savenick"){var nn=v("nn"),sn=nn?await sb.from("circle_nicknames").upsert({circle_id:b.dataset.c,parent_id:uid,nickname:nn}):await sb.from("circle_nicknames").delete().eq("circle_id",b.dataset.c).eq("parent_id",uid);
+ else if(a==="savenick"){var nn=v("nn");if(rudeCheck(["nn"],"ce3"))return;var sn=nn?await sb.from("circle_nicknames").upsert({circle_id:b.dataset.c,parent_id:uid,nickname:nn}):await sb.from("circle_nicknames").delete().eq("circle_id",b.dataset.c).eq("parent_id",uid);
   if(sn.error)throw sn.error;await load();circleSheet(b.dataset.c,nn?"Saved. Only you see this name.":"Back to the circle name.");flash('[data-a="savenick"]')}
  else if(a==="hidetoggle"){var hp=b.dataset.p,isH=hiddenIds.indexOf(hp)>-1;
   var hr=isH?await sb.from("hidden_from").delete().eq("owner_id",uid).eq("hidden_id",hp):await sb.from("hidden_from").insert({owner_id:uid,hidden_id:hp});
@@ -773,6 +792,7 @@ async function act(b){
   var l=await sb.rpc("leave_circle",{p_circle:b.dataset.c});if(l.error){toast(l.error.message);return}
   if(sel===b.dataset.c)sel="all";await load();circlesSheet()}
  else if(a==="sendplan"){var t=v("pt");if(!t){E("pe2","Add what the activity is.");return}
+  if(rudeCheck(["pt","pw","pn"],"pe2"))return;
   var wp=whoPicked();if(!wp.count){E("pe2","Tick at least one person who is going.");return}
   var dd=parseDate(v("pd"));if(!dd){E("pe2","Type the day like 12 Oct, 12/10 or tomorrow.");return}
   var bt=buildTimes(dd,v("pf"),v("pe"));if(bt.err){E("pe2",bt.err);return}
@@ -785,7 +805,7 @@ async function act(b){
  else if(a==="nudgesave"){var nz=v("nz");if(!nz){return}setAdArea(nz)}
  else if(a==="nudgeno"){try{localStorage.setItem("pr_adnudge","1")}catch(e){}draw()}
  else if(a==="togglepublic"){var np=await sb.from("parents").update({name_public:!me.name_public}).eq("id",uid);if(np.error)throw np.error;me.name_public=!me.name_public;profOpen.nm=true;profileSheet(me.name_public?"Your name is now visible to everyone in your circles.":"Your name is now private.")}
- else if(a==="saveadarea"||a==="clearadarea"){setAdArea(a==="clearadarea"?"":v("adarea"));profOpen.area=true;profileSheet("Saved.")}
+ else if(a==="saveadarea"||a==="clearadarea"){setAdArea(a==="clearadarea"?"":v("adarea"));profOpen.area=true;profileSheet("Saved.");if(a==="saveadarea")flash('[data-a="saveadarea"]')}
  else if(a==="sponsortap"){sb.rpc("sponsor_event",Object.assign({p_sponsor:b.dataset.s,p_kind:"tap"},adGeo(b.dataset.s))).then(function(){},function(){})}
  else if(a==="sponsorhide"){var hc=document.querySelector(".spons[data-sp]");if(hc)sb.rpc("sponsor_event",Object.assign({p_sponsor:hc.dataset.sp,p_kind:"hide"},adGeo(hc.dataset.sp))).then(function(){},function(){});sponsorHidden=true;draw()}
  else if(a==="whosheet"){whoSheet(b.dataset.p,b.dataset.s)}
@@ -808,6 +828,7 @@ async function act(b){
  else if(a==="pushoff"){var st2=await pushState();if(st2.sub){await sb.rpc("drop_push_sub",{p_endpoint:st2.sub.endpoint});await st2.sub.unsubscribe()}await pushBox();toast("Notifications are off.")}
  else if(a==="editplan"){var hr0=await sb.from("plan_hidden_from").select("hidden_id").eq("plan_id",b.dataset.p);planHides=(hr0.data||[]).map(function(x){return x.hidden_id});editSheet(b.dataset.p)}
  else if(a==="saveplan"){var et=v("et");if(!et){E("ee2","Add what the activity is.");return}
+  if(rudeCheck(["et","ew","en"],"ee2"))return;
   var wq=whoPicked();if(!wq.count){E("ee2","Tick at least one person who is going.");return}
   var d2=parseDate(v("ed2"));if(!d2){E("ee2","Type the day like 12 Oct, 12/10 or tomorrow.");return}
   var bt2=buildTimes(d2,v("ef"),v("ee"));if(bt2.err){E("ee2",bt2.err);return}

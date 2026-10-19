@@ -6,6 +6,7 @@
 <meta name="copyright" content="© 2026 Sean James Pillan. All rights reserved.">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1B2B3C">
+<script>try{var t=localStorage.getItem("pr_theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -17,6 +18,8 @@
 .cpills{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 2px}.cpill{font-size:12px;font-weight:700;padding:2px 9px;border-radius:99px;white-space:nowrap}
 :root{--bg:#EAF2F7;--card:#fff;--ink:#1B2B3C;--mute:#5B6B7B;--line:#D5E1EA;--sun:#FFC83D;--leaf:#1F8A5F;--leafbg:#DDF3E9;--coral:#E4584A;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media (prefers-color-scheme:dark){:root{--bg:#101A24;--card:#1A2735;--ink:#EEF4F8;--mute:#9AABBB;--line:#2A3B4C;--leafbg:#17382B}}
+:root[data-theme="dark"]{--bg:#101A24;--card:#1A2735;--ink:#EEF4F8;--mute:#9AABBB;--line:#2A3B4C;--leafbg:#17382B}
+:root[data-theme="light"]{--bg:#EAF2F7;--card:#fff;--ink:#1B2B3C;--mute:#5B6B7B;--line:#D5E1EA;--leafbg:#DDF3E9}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:'Bricolage Grotesque',system-ui,-apple-system,sans-serif;font-size:16px;line-height:1.4}
 .app{max-width:480px;margin:0 auto;min-height:100vh;padding:16px 16px 110px}
@@ -149,8 +152,9 @@ var RUDE=["arse","arsehole","arseholes","asshole","assholes","bastard","bastards
 function rudeWord(t){var w=(t||"").toLowerCase().replace(/[013457@$]/g,function(c){return {"0":"o","1":"i","3":"e","4":"a","5":"s","7":"t","@":"a","$":"s"}[c]||c}).replace(/[^a-z]+/g," ").split(" ").filter(Boolean),run="";for(var i=0;i<=w.length;i++){var x=w[i];if(x&&x.length===1)run+=x;else{if(run.length>1&&RUDE.indexOf(run)>-1)return true;run="";if(x&&RUDE.indexOf(x)>-1)return true}}return false}
 function rudeCheck(ids,errId){for(var i=0;i<ids.length;i++){var el=$(ids[i]);if(el&&rudeWord(el.value)){var ee=$(errId);if(ee)ee.textContent="Please reword that. PopRound keeps names and activities family-friendly.";return true}}return false}
 var APP_VERSION="1.0 (Oct 2026)";
+function adEmailOk(){return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(window.POPROUND_ADS_EMAIL||"").trim())}
 function aboutBox(){var em=String(window.POPROUND_SUPPORT_EMAIL||"").trim(),ok=/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em),l=function(h,t){return '<a class="legal" href="'+h+'" target="_blank" rel="noopener">'+t+' <span aria-hidden="true">&#8250;</span></a>'};
- return l("privacy.html","Privacy policy")+l("terms.html","Terms of use")+l("rules.html","Community rules")+(ok?'<a class="legal" href="mailto:'+esc(em)+'?subject=PopRound%20support">Contact us <span aria-hidden="true">&#8250;</span></a>':'')+'<p class="hint" style="margin-top:10px">PopRound '+APP_VERSION+'<br>\u00A9 2026 Sean James Pillan. All rights reserved.</p>'}
+ return l("privacy.html","Privacy policy")+l("terms.html","Terms of use")+l("rules.html","Community rules")+(adEmailOk()?'<a class="legal" href="mailto:'+esc(String(window.POPROUND_ADS_EMAIL).trim())+'?subject=Advertise%20with%20PopRound">Advertise with PopRound <span aria-hidden="true">&#8250;</span></a>':'')+(ok?'<a class="legal" href="mailto:'+esc(em)+'?subject=PopRound%20support">Contact us <span aria-hidden="true">&#8250;</span></a>':'')+'<p class="hint" style="margin-top:10px">PopRound '+APP_VERSION+'<br>\u00A9 2026 Sean James Pillan. All rights reserved.</p>'}
 function timeSel(id,hhmm,opt){var h=hhmm?hhmm.slice(0,2):"",m=hhmm?hhmm.slice(3,5):"",ho=opt?'<option value=""'+(h===""?' selected':'')+'>--</option>':'',mo=["00","15","30","45"];if(m&&mo.indexOf(m)<0){mo.push(m);mo.sort()}
  for(var i=0;i<24;i++){var x=pad(i);ho+='<option value="'+x+'"'+(x===h?' selected':'')+'>'+x+'</option>'}
  return '<div class="tsel"><select data-ts="'+id+'" data-tp="h" aria-label="Hour (24 hour)">'+ho+'</select><b>:</b><select data-ts="'+id+'" data-tp="m" aria-label="Minutes">'+mo.map(function(x){return '<option value="'+x+'"'+(x===m?' selected':'')+'>'+x+'</option>'}).join("")+'</select><input type="hidden" id="'+id+'" value="'+(hhmm||"")+'"></div>'}
@@ -185,7 +189,7 @@ var stars={},pickN={color:COLORS[0],emoji:"👋"},pickE={color:COLORS[0],emoji:"
 var sb,uid=null,me=null,kids=[],blocked=[],dismissed=[],safeT=null,circles=[],plans=[],replies=[],pending=[],sel="all",subscribed=false,toastFor=null,toastKind="New",timer=null;
 var SW=["#1F8A5F","#E8A400","#3B6FE0","#E4584A","#8A3FC0","#E0457B","#0E8F8F","#F08A24","#6C8FB8"],CD={g:"#1F8A5F",m:"#E8A400",h:"#3B6FE0"};
 var cols=(function(){var c={g:CD.g,m:CD.m,h:CD.h};try{var j=JSON.parse(localStorage.getItem("pr_cols")||"{}");["g","m","h"].forEach(function(k){if(SW.indexOf(j[k])>-1)c[k]=j[k]})}catch(e){}return c})(),cardOpen={};
-var circRoster={},sponsors=[],sponsorPick="",adArea=(function(){try{return localStorage.getItem("pr_adarea")||""}catch(e){return ""}})(),sponsorSeen={},sponsorHidden=false,pcs={},nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null,counts={},reminders={},ckw=null,profPriv={};
+var circRoster={},sponsors=[],spPick={top:"",bottom:""},adArea=(function(){try{return localStorage.getItem("pr_adarea")||""}catch(e){return ""}})(),sponsorSeen={},sponsorHidden={top:false,bottom:false},pcs={},nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null,counts={},reminders={},ckw=null,profPriv={};
 function daysLeft(ds){var e=new Date(ds+"T00:00:00"),t=new Date();t.setHours(0,0,0,0);return Math.round((e-t)/864e5)}
 function longDate(ds){return new Date(ds+"T00:00:00").toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short",year:"numeric"})}
 function endLabel(ds){if(!ds)return "No end date";var n=daysLeft(ds);if(n<0)return "Ended";if(n===0)return "Ends today";if(n===1)return "Ends tomorrow";if(n<=14)return "Ends in "+n+" days";return "Ends "+new Date(ds+"T00:00:00").toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"})}
@@ -429,6 +433,8 @@ function stylePicker(g,st){
  +'</div><div class="emojis" role="group" aria-label="Icon">'+EMOJIS.map(function(m){return '<button type="button" class="em" data-a="pickemoji" data-g="'+g+'" data-v="'+m+'" aria-pressed="'+(st.emoji===m)+'">'+m+'</button>'}).join("")+'</div>'}
 function inkOn(hex){var h=(hex||"#4361EE").replace("#",""),c=[0,2,4].map(function(i){var v=parseInt(h.substr(i,2),16)/255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)});return(.2126*c[0]+.7152*c[1]+.0722*c[2])>.3?"#1B2B3C":"#fff"}
 var profOpen={};
+function curTheme(){try{return localStorage.getItem("pr_theme")||"auto"}catch(e){return "auto"}}
+function applyTheme(t){var r=document.documentElement;if(t==="light"||t==="dark")r.setAttribute("data-theme",t);else r.removeAttribute("data-theme")}
 function acc(k,title,body){var o=!!profOpen[k];return '<div class="acc'+(o?' open':'')+'"><button class="acch" data-a="sec" data-k="'+k+'" aria-expanded="'+o+'"><span>'+title+'</span><span class="chev" aria-hidden="true">&#8250;</span></button><div class="accb">'+body+'</div></div>'}
 function backBtn(a,p){return '<button class="backb" data-a="'+a+'"'+(p?' data-p="'+esc(p)+'"':'')+' aria-label="Back">&#8592;</button>'}
 function flash(sel,label){var el=document.querySelector("#sheet "+sel);if(!el)return;el.dataset.orig=el.textContent;el.textContent=label||"Saved \u2713";el.classList.add("saved");el.disabled=true;clearTimeout(flash.t);flash.t=setTimeout(unflash,3000)}
@@ -456,7 +462,7 @@ function replySheet(pid,msg){
   +(my?'<button class="link" style="margin-top:12px" data-a="removereply" data-p="'+esc(pid)+'">Take back my reply</button>':'')
   +'<button class="link" data-a="dismiss" data-p="'+esc(pid)+'">Not for me: hide this activity</button><p class="hint">Hidden activities are kept under Hidden on the home screen, so you can bring them back.</p><div class="err" id="re">'+esc(msg||"")+'</div>');
 }
-function profileSheet(msg){
+function profileSheet(msg){if(Object.keys(profOpen).some(function(q){return profOpen[q]&&/^(nm|hide|dis|blk|hc_.+)$/.test(q)}))profOpen.priv=true;
  var hideRow=function(p){var h=hiddenIds.indexOf(p.id)>-1;return '<div class="req" data-nm="'+esc(nrm(p.display_name))+'"><b>'+esc(p.display_name)+'</b><button class="b sm'+(h?' on':'')+'" data-a="hidetoggle" data-p="'+esc(p.id)+'">'+(h?'Hidden':'Hide')+'</button></div>'};
  var hideGroups="",hideSeen={};
  sortedCircles().forEach(function(c){var ppl=circRoster[c.circle_id]||[];if(!ppl.length)return;
@@ -477,13 +483,9 @@ function profileSheet(msg){
  var strip=function(h){return h.replace(/^<h2[^>]*>.*?<\/h2>/,"")};
  setSheet(backBtn("close")+'<h2>Settings</h2>'+(msg?'<p class="hint">'+esc(msg)+'</p>':'')
  +'<div class="acc"><button class="acch" data-a="profilepage"><span>Profile</span><span class="chev" aria-hidden="true">&#8250;</span></button></div>'
- +(typeof me.name_public==="boolean"?acc("nm","Who can see my name",'<p class="hint"><b>Off (recommended):</b> your name and the first names of the family members you bring along are shown only to people in circles you organise. The organiser of any circle you are in can always see them. Everyone else sees "A member". Totals such as "3 going" still count you.</p><p class="hint"><b>On:</b> everyone in your circles can see them.</p><button class="b sm'+(me.name_public?' on':'')+'" data-a="togglepublic">Show my name to everyone: '+(me.name_public?'On':'Off')+'</button>'):"")
- +acc("col","Card colours",'<p class="hint">Choose the colour for each kind of activity. It applies to all your cards, on this phone.</p>'+[["g","Going"],["m","Maybe"],["h","Activities I organise"]].map(function(r){return '<div style="margin:10px 0"><b>'+r[1]+'</b><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">'+SW.map(function(c){var on=cols[r[0]]===c;return '<button data-a="setcol" data-k="'+r[0]+'" data-v="'+c+'" aria-label="'+r[1]+' colour" aria-pressed="'+on+'" style="width:38px;height:38px;border-radius:50%;background:'+c+';border:3px solid '+(on?'var(--ink)':'transparent')+';color:#fff;font-size:18px;font-weight:800;cursor:pointer">'+(on?'\u2713':'')+'</button>'}).join("")+'</div></div>'}).join("")+'<button class="b sm" data-a="setcol" data-k="reset">Reset to default</button>')
- +acc("area","Ads near me",'<p class="hint">Optional. Type your town, area or postcode to see local sponsors, like a business near you. Spelling does not need to be perfect. This stays on this phone and is never sent to PopRound. If you leave it empty, PopRound may match place names on activities you can see to local sponsors, on your phone only. Sponsors never see your name, circles or activities.</p><label for="adarea">My town or area</label><input id="adarea" maxlength="40" autocomplete="off" placeholder="e.g. Milton Keynes or MK7" value="'+esc(adArea)+'"><button class="b sm on" data-a="saveadarea">Save</button> <button class="b sm" data-a="clearadarea">Clear</button>')
+ +acc("col","Appearance",'<b>Theme</b><div style="display:flex;gap:8px;margin:6px 0 14px">'+[["auto","Auto"],["light","Light"],["dark","Dark"]].map(function(t){return '<button class="b sm'+(curTheme()===t[0]?' on':'')+'" data-a="settheme" data-v="'+t[0]+'">'+t[1]+'</button>'}).join("")+'<p class="hint" style="margin-top:0">Auto follows your phone\'s setting.</p><b>Card colours</b>'+'<p class="hint">Choose the colour for each kind of activity. It applies to all your cards, on this phone.</p>'+[["g","Going"],["m","Maybe"],["h","Activities I organise"]].map(function(r){return '<div style="margin:10px 0"><b>'+r[1]+'</b><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">'+SW.map(function(c){var on=cols[r[0]]===c;return '<button data-a="setcol" data-k="'+r[0]+'" data-v="'+c+'" aria-label="'+r[1]+' colour" aria-pressed="'+on+'" style="width:38px;height:38px;border-radius:50%;background:'+c+';border:3px solid '+(on?'var(--ink)':'transparent')+';color:#fff;font-size:18px;font-weight:800;cursor:pointer">'+(on?'\u2713':'')+'</button>'}).join("")+'</div></div>'}).join("")+'<button class="b sm" data-a="setcol" data-k="reset">Reset to default</button>')
  +acc("push","Notifications",'<div id="pushbox"><p class="hint">Checking...</p></div>')
- +acc("hide","Hide my activities from",strip(hideList))
- +acc("dis","Hidden activities"+(dis.length?" ("+dis.length+")":""),strip(disList))
- +acc("blk","Blocked (safety)"+(blocked.length?" ("+blocked.length+")":""),strip(blk))
+ +acc("priv","Privacy & safety",(typeof me.name_public==="boolean"?acc("nm","Who can see my name",'<p class="hint"><b>Off (recommended):</b> your name and the first names of the family members you bring along are shown only to people in circles you organise. The organiser of any circle you are in can always see them. Everyone else sees "A member". Totals such as "3 going" still count you.</p><p class="hint"><b>On:</b> everyone in your circles can see them.</p><button class="b sm'+(me.name_public?' on':'')+'" data-a="togglepublic">Show my name to everyone: '+(me.name_public?'On':'Off')+'</button>'):"")+acc("hide","Hide my activities from",strip(hideList))+acc("dis","Hidden activities"+(dis.length?" ("+dis.length+")":""),strip(disList))+acc("blk","Blocked (safety)"+(blocked.length?" ("+blocked.length+")":""),strip(blk)))
  +acc("legal","About & legal",aboutBox())
  +'<div class="acc"></div><button class="link" data-a="signout">Sign out</button>');
  pushBox();
@@ -494,6 +496,7 @@ function profilePage(msg){
  +'<label for="pf1">First name (optional)</label><input id="pf1" maxlength="40" autocomplete="given-name" value="'+esc(pp.first_name||"")+'">'
  +'<label for="pl1">Last name (optional)</label><input id="pl1" maxlength="40" autocomplete="family-name" value="'+esc(pp.last_name||"")+'">'
  +'<p class="hint">Your first and last name are private. Only you can see them. Other people see your username.</p>'
+ +'<label for="adarea">Your town or area (optional)</label><input id="adarea" maxlength="40" autocomplete="off" placeholder="e.g. Milton Keynes or MK7" value="'+esc(adArea)+'"><p class="hint">Used to show ads near you, such as local businesses. Stays on this phone and is never sent to PopRound. Spelling does not need to be perfect. If you leave it empty, PopRound may match place names on activities you can see.</p>'
  +'<label>People you bring along</label>'
  +kids.map(function(k){return '<div class="req" style="gap:6px"><input data-kid="'+esc(k.id)+'" value="'+esc(k.first_name)+'" aria-label="First name" style="flex:1;min-width:0">'+'<button class="b sm del" data-a="rmkid" data-k="'+esc(k.id)+'">Remove</button></div>'}).join("")
  +'<label for="nk">Add someone</label><div class="req" style="gap:6px"><input id="nk" placeholder="First name" style="flex:1;min-width:0"></div>'
@@ -517,11 +520,12 @@ function editSheet(pid){
  +'<button class="big" data-a="saveplan" data-p="'+esc(pid)+'">Save and notify</button><button class="link" data-a="close">Cancel</button>');
  endHint();fillHideList(pcOf(p),planHides);
 }
-function countSponsorView(id){if(sponsorSeen[id])return;sponsorSeen[id]=1;sb.rpc("sponsor_event",Object.assign({p_sponsor:id,p_kind:"view"},adGeo(id))).then(function(){},function(){})}
+function spEvent(id,kind,slot){var base=Object.assign({p_sponsor:id,p_kind:kind},adGeo(id));sb.rpc("sponsor_event",Object.assign({p_slot:slot||"top"},base)).then(function(r){if(r&&r.error)sb.rpc("sponsor_event",base).then(function(){},function(){})},function(){})}
+function countSponsorView(id,slot){var k=id+"|"+slot;if(sponsorSeen[k])return;sponsorSeen[k]=1;spEvent(id,"view",slot)}
 function watchSponsor(){
- var el=document.querySelector(".spons[data-sp]");if(!el||sponsorSeen[el.dataset.sp])return;
- if(!("IntersectionObserver" in window)){countSponsorView(el.dataset.sp);return}
- var io=new IntersectionObserver(function(en){en.forEach(function(x){if(x.isIntersecting){io.disconnect();countSponsorView(el.dataset.sp)}})},{threshold:.6});io.observe(el)}
+ [].forEach.call(document.querySelectorAll(".spons[data-sp]"),function(el){var id=el.dataset.sp,slot=el.dataset.slot||"top";if(sponsorSeen[id+"|"+slot])return;
+  if(!("IntersectionObserver" in window)){countSponsorView(id,slot);return}
+  var io=new IntersectionObserver(function(en){en.forEach(function(x){if(x.isIntersecting){io.disconnect();countSponsorView(id,slot)}})},{threshold:.6});io.observe(el)})}
 var TZC={"Europe/London":"GB","Europe/Belfast":"GB","Europe/Dublin":"IE","Africa/Johannesburg":"ZA","America/New_York":"US","America/Chicago":"US","America/Denver":"US","America/Los_Angeles":"US","America/Toronto":"CA","America/Vancouver":"CA","Australia/Sydney":"AU","Australia/Melbourne":"AU","Australia/Perth":"AU","Pacific/Auckland":"NZ","Europe/Paris":"FR","Europe/Berlin":"DE","Europe/Madrid":"ES","Europe/Amsterdam":"NL","Asia/Dubai":"AE","Asia/Kolkata":"IN","Africa/Harare":"ZW","Africa/Nairobi":"KE","Africa/Lagos":"NG","Africa/Cairo":"EG","Africa/Accra":"GH","Africa/Maputo":"MZ","Africa/Windhoek":"NA","Africa/Gaborone":"BW","Africa/Lusaka":"ZM","Africa/Casablanca":"MA","Europe/Rome":"IT","Europe/Lisbon":"PT","Europe/Brussels":"BE","Europe/Zurich":"CH","Europe/Stockholm":"SE","Europe/Oslo":"NO","Europe/Copenhagen":"DK","Europe/Warsaw":"PL","Europe/Athens":"GR","Asia/Singapore":"SG","Asia/Hong_Kong":"HK","Asia/Tokyo":"JP","Asia/Manila":"PH","America/Sao_Paulo":"BR","America/Mexico_City":"MX","America/Halifax":"CA","America/Phoenix":"US","America/Anchorage":"US","Pacific/Honolulu":"US","Australia/Brisbane":"AU","Australia/Adelaide":"AU","Australia/Hobart":"AU"};
 function adCountry(){
  try{var z=TZC[Intl.DateTimeFormat().resolvedOptions().timeZone];if(z)return z}catch(e){}
@@ -550,14 +554,14 @@ function sponsorFits(sp){
  if(ar.length)return !!adToken(sp);
  if(co.length)return co.indexOf(adCountry().toLowerCase())>-1;
  return true}
-function setAdArea(t,quiet){adArea=String(t||"").trim().slice(0,40);try{if(adArea)localStorage.setItem("pr_adarea",adArea);else localStorage.removeItem("pr_adarea")}catch(e){}sponsorPick="";if(!quiet)draw()}
-function pickSponsor(){
- var cur=sponsors.find(function(x){return x.id===sponsorPick});if(cur&&sponsorFits(cur))return cur;
- var fit=sponsors.filter(sponsorFits);if(!fit.length)return null;
- var last="";try{last=localStorage.getItem("pr_lastsp")||""}catch(e){}
- var pool=fit.length>1?fit.filter(function(x){return x.id!==last}):fit;
- var sp=pool[Math.floor(Math.random()*pool.length)];sponsorPick=sp.id;
- try{localStorage.setItem("pr_lastsp",sp.id)}catch(e){}return sp}
+function setAdArea(t,quiet){adArea=String(t||"").trim().slice(0,40);try{if(adArea)localStorage.setItem("pr_adarea",adArea);else localStorage.removeItem("pr_adarea")}catch(e){}spPick={top:"",bottom:""};if(!quiet)draw()}
+function pickSponsor(slot,excl){slot=slot||"top";
+ var cur=sponsors.find(function(x){return x.id===spPick[slot]});if(cur&&cur.id!==excl&&sponsorFits(cur))return cur;
+ var fit=sponsors.filter(function(x){return sponsorFits(x)&&x.id!==excl});if(!fit.length)return null;
+ var last="";try{if(slot==="top")last=localStorage.getItem("pr_lastsp")||""}catch(e){}
+ var pool=fit.length>1&&last?fit.filter(function(x){return x.id!==last}):fit;
+ var sp=pool[Math.floor(Math.random()*pool.length)];spPick[slot]=sp.id;
+ if(slot==="top"){try{localStorage.setItem("pr_lastsp",sp.id)}catch(e){}}return sp}
 var adDaysN=(function(){var n=0;try{var a=JSON.parse(localStorage.getItem("pr_days")||"[]"),t=new Date().toISOString().slice(0,10);if(a.indexOf(t)<0){a.push(t);a=a.slice(-10);localStorage.setItem("pr_days",JSON.stringify(a))}n=a.length}catch(e){}return n})();
 function nudgeCard(){
  var no=false;try{no=!!localStorage.getItem("pr_adnudge")}catch(e){}
@@ -566,14 +570,14 @@ function nudgeCard(){
 function houseCard(){
  var em=String(window.POPROUND_ADS_EMAIL||"").trim();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em))return "";
  return '<div class="card spons"><div class="where" style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase">Sponsored</div><div style="display:flex;gap:12px;align-items:center;margin-top:8px"><span style="font-size:30px;flex:none;width:44px;text-align:center">\ud83d\udce3</span><span><b style="display:block">Your business here</b><span class="where">Reach local families in PopRound. Email '+esc(em)+'</span></span></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px"><span class="where" style="font-size:12px">Sponsors help keep PopRound free.</span><button class="link" style="font-size:12px;width:auto;padding:4px 8px" data-a="sponsorhide">Hide</button></div></div>'}
-function sponsorCard(){
- if(sponsorHidden)return "";
- if(!sponsors.length)return nudgeCard()+houseCard();
- var sp=pickSponsor();if(!sp)return nudgeCard()+houseCard();
+function sponsorCard(slot,excl){slot=slot||"top";
+ if(sponsorHidden[slot])return "";
+ if(!sponsors.length)return slot==="top"?nudgeCard()+houseCard():"";
+ var sp=pickSponsor(slot,excl);if(!sp)return slot==="top"?nudgeCard()+houseCard():"";
  var img=sp.image_url&&/^https:\/\//.test(sp.image_url)?'<img src="'+esc(sp.image_url)+'" alt="" referrerpolicy="no-referrer" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'block\'" style="width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none"><span style="display:none;font-size:30px;flex:none;width:44px;text-align:center">'+esc(sp.emoji||"⭐")+'</span>':'<span style="font-size:30px;flex:none;width:44px;text-align:center">'+esc(sp.emoji||"\u2B50")+'</span>';
- return nudgeCard()+'<div class="card spons" data-sp="'+esc(sp.id)+'"><div class="where" style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase">Sponsored</div>'
-  +'<a href="'+esc(sp.link_url)+'" target="_blank" rel="noopener sponsored" data-a="sponsortap" data-s="'+esc(sp.id)+'" style="display:flex;gap:12px;align-items:center;text-decoration:none;color:inherit;margin-top:8px">'+img+'<span><b style="display:block">'+esc(sp.headline)+'</b>'+(sp.body?'<span class="where">'+esc(sp.body)+'</span>':'')+'<span class="where" style="display:block;font-size:12px">'+esc(sp.name)+'</span></span></a>'
-  +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px"><span class="where" style="font-size:12px">Sponsors help keep PopRound free. They never see your name, circles or activities.</span><button class="link" style="font-size:12px;width:auto;padding:4px 8px" data-a="sponsorhide">Hide</button></div></div>'}
+ return (slot==="top"?nudgeCard():"")+'<div class="card spons" data-sp="'+esc(sp.id)+'" data-slot="'+slot+'"><div class="where" style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase">Sponsored</div>'
+  +'<a href="'+esc(sp.link_url)+'" target="_blank" rel="noopener sponsored" data-a="sponsortap" data-s="'+esc(sp.id)+'" data-slot="'+slot+'" style="display:flex;gap:12px;align-items:center;text-decoration:none;color:inherit;margin-top:8px">'+img+'<span><b style="display:block">'+esc(sp.headline)+'</b>'+(sp.body?'<span class="where">'+esc(sp.body)+'</span>':'')+'<span class="where" style="display:block;font-size:12px">'+esc(sp.name)+'</span></span></a>'
+  +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px"><span class="where" style="font-size:12px">Sponsors help keep PopRound free. They never see your name, circles or activities.</span><button class="link" style="font-size:12px;width:auto;padding:4px 8px" data-a="sponsorhide" data-slot="'+slot+'">Hide</button></div></div>'}
 function clashesFor(pid){
  var p=plans.find(function(x){return x.id===pid});if(!p)return[];
  var a0=new Date(p.starts_at),a1=new Date(p.ends_at),now=new Date();
@@ -639,7 +643,7 @@ function draw(){
   +'<div class="cfoot"><div class="where" style="font-size:13px"><b style="color:var(--ink)">'+esc(hostName(p))+'</b>'+(p.created_at?' &nbsp;Sent '+esc(sentAt(p.created_at)):'')+'</div>'+btns+'</div>'
   +(canc?(host?'':hand&&myR?'<button class="big" style="margin-top:10px" data-a="keepplan" data-p="'+esc(p.id)+'">Keep it going</button>':'<button class="link" style="font-size:13px;margin-top:8px" data-a="dismiss" data-p="'+esc(p.id)+'">Hide this</button>'):host?'':myR?'<div class="mine"><b>\u2713 '+(myR==="going"?"You\'re going":(party?"You said maybe":"You might pop by"))+'</b><button class="b sm" data-a="replysheet" data-p="'+esc(p.id)+'">Change</button></div>':'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px"><button class="b '+(myR==="maybe"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="maybe" data-p="'+esc(p.id)+'">'+l1+'</button><button class="b '+(myR==="going"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="going" data-p="'+esc(p.id)+'">'+l2+'</button><button class="b" style="font-size:13px;padding:9px 4px" data-a="dismiss" data-p="'+esc(p.id)+'">Not for me</button></div>')+(host||!myR||ended||canc?'':'<div class="where" style="margin-top:10px">'+(reminders[p.id]?'🔔 '+(new Date(reminders[p.id])>now?'Leave-by alert at ':'Leave-by alert was at ')+tm(new Date(reminders[p.id]))+(new Date(reminders[p.id])>now?' <button class="b sm" data-a="leavesheet" data-p="'+esc(p.id)+'">Change</button>':''):'<button class="b sm" data-a="leavesheet" data-p="'+esc(p.id)+'">🔔 Set a leave-by alert</button>')+'</div>')+(host||canc?'':'<button class="link" style="font-size:13px;margin-top:8px" data-a="safety" data-p="'+esc(p.id)+'">Report or block</button>');
   return head+(open?tail:'')+'</article>'});
- var spH=ap.length?sponsorCard():"",cards=(spH&&cardArr.length>3?cardArr.slice(0,3).concat([spH],cardArr.slice(3)):cardArr).join(""),spBottom=cardArr.length>3?"":spH;
+ var spH=ap.length?sponsorCard("top"):"",spB=(ap.length&&cardArr.length>3)?sponsorCard("bottom",spPick.top):"",cards=(spH&&cardArr.length>3?cardArr.slice(0,3).concat([spH],cardArr.slice(3)):cardArr).join(""),spBottom=cardArr.length>3?spB:spH;
  $("app").innerHTML='<div class="head"><button class="rbtn" data-a="circles" aria-label="Circles'+(pending.length?', '+pending.length+' waiting for approval':'')+'"><img src="icon.svg" alt="" style="width:100%;height:100%;border-radius:50%;display:block">'+(pending.length?'<span class="cnt">'+pending.length+'</span>':'')+'</button><div class="brand"><h1>PopRound</h1></div><button class="rbtn" data-a="profile" aria-label="Settings"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div><p class="sub">Hi '+esc(me.display_name.replace(/\.$/,''))+'. No invites, no pressure. Just: we\'ll be here.</p>'
   +(ap.length?circleRow(sc,now):'')
   +(ap.length&&sel!=="all"?'<p class="hint" style="margin:0 0 8px">Showing <b>'+esc(cname(sel,(ap.find(function(c){return c.circle_id===sel})||{circles:{}}).circles.name))+'</b>. Tap All to see everything.</p>':'')
@@ -691,7 +695,7 @@ async function act(b){
  else if(a==="findcircle"){joinInfo=null;findSheet()}
  else if(a==="newcircle"){pickN={color:COLORS[0],emoji:"👋"};newCircleSheet()}
  else if(a==="hidden"){hiddenSheet()}
- else if(a==="sec"){var bx=b.parentNode;bx.classList.toggle("open");var isO=bx.classList.contains("open");profOpen[b.dataset.k]=isO;b.setAttribute("aria-expanded",String(isO))}
+ else if(a==="sec"){var bx=b.parentNode;bx.classList.toggle("open");var isO=bx.classList.contains("open");profOpen[b.dataset.k]=isO;var sk=b.dataset.k;if(isO&&/^(nm|hide|dis|blk|hc_.+)$/.test(sk))profOpen.priv=true;if(sk==="priv"&&!isO)Object.keys(profOpen).forEach(function(q){if(/^(nm|hide|dis|blk|hc_.+)$/.test(q))profOpen[q]=false});b.setAttribute("aria-expanded",String(isO))}
  else if(a==="replysheet"){replySheet(b.dataset.p)}
  else if(a==="setreply"){var sp=b.dataset.p,ss2=b.dataset.s,cr=(replies.find(function(x){return x.plan_id===sp&&x.parent_id===uid})||{}).status;
   if(cr!==ss2){var sr3=await sb.from("plan_replies").upsert({plan_id:sp,parent_id:uid,status:ss2});if(sr3.error)throw sr3.error;await load()}
@@ -704,6 +708,7 @@ async function act(b){
   var rk=await sb.from("children").delete().eq("id",b.dataset.k);if(rk.error)throw rk.error;await load();profilePage()}
  else if(a==="saveprofile"){var nm=v("pn1");if(!nm){E("pre","Your name can't be empty.");return}
   if(rudeCheck(["pn1"],"pre")||[].some.call(document.querySelectorAll("#sheet [data-kid]"),function(x){return rudeWord(x.value)})){E("pre","Please reword that. PopRound keeps names and activities family-friendly.");return}
+  if($("adarea"))setAdArea($("adarea").value,true);
   var ins=document.querySelectorAll("#sheet [data-kid]");
   for(var j=0;j<ins.length;j++){if(!ins[j].value.trim()){E("pre","A name can't be empty. Use Remove to delete one.");return}}
   var u1=await sb.from("parents").update({display_name:nm}).eq("id",uid);if(u1.error)throw u1.error;
@@ -807,12 +812,13 @@ async function act(b){
   if(ins.error)throw ins.error;setSheet("");toast(pcl.length>1?"Sent. Your circles have been notified.":"Sent. Your circle has been notified.");await load()}
  else if(a==="togglecard"){var tp=b.dataset.p,tcur=cardOpen.hasOwnProperty(tp)?cardOpen[tp]:null;if(tcur===null){var tb=b.closest("article");tcur=!!tb&&!!tb.querySelector(".cfoot")}cardOpen[tp]=!tcur;draw()}
  else if(a==="setcol"){if(b.dataset.k==="reset"){cols={g:CD.g,m:CD.m,h:CD.h}}else cols[b.dataset.k]=b.dataset.v;try{localStorage.setItem("pr_cols",JSON.stringify(cols))}catch(e){}draw();profOpen.col=true;profileSheet()}
+ else if(a==="settheme"){try{localStorage.setItem("pr_theme",b.dataset.v)}catch(e){}applyTheme(b.dataset.v);profOpen.col=true;profileSheet()}
  else if(a==="nudgesave"){var nz=v("nz");if(!nz){return}setAdArea(nz)}
  else if(a==="nudgeno"){try{localStorage.setItem("pr_adnudge","1")}catch(e){}draw()}
  else if(a==="togglepublic"){var np=await sb.from("parents").update({name_public:!me.name_public}).eq("id",uid);if(np.error)throw np.error;me.name_public=!me.name_public;profOpen.nm=true;profileSheet(me.name_public?"Your name is now visible to everyone in your circles.":"Your name is now private.")}
  else if(a==="saveadarea"||a==="clearadarea"){setAdArea(a==="clearadarea"?"":v("adarea"));profOpen.area=true;profileSheet("Saved.");if(a==="saveadarea")flash('[data-a="saveadarea"]')}
- else if(a==="sponsortap"){sb.rpc("sponsor_event",Object.assign({p_sponsor:b.dataset.s,p_kind:"tap"},adGeo(b.dataset.s))).then(function(){},function(){})}
- else if(a==="sponsorhide"){var hc=document.querySelector(".spons[data-sp]");if(hc)sb.rpc("sponsor_event",Object.assign({p_sponsor:hc.dataset.sp,p_kind:"hide"},adGeo(hc.dataset.sp))).then(function(){},function(){});sponsorHidden=true;draw()}
+ else if(a==="sponsortap"){spEvent(b.dataset.s,"tap",b.dataset.slot)}
+ else if(a==="sponsorhide"){var hsl=b.dataset.slot||"top",hc=b.closest(".spons[data-sp]");if(hc)spEvent(hc.dataset.sp,"hide",hsl);sponsorHidden[hsl]=true;draw()}
  else if(a==="whosheet"){whoSheet(b.dataset.p,b.dataset.s)}
  else if(a==="reply"){var pid=b.dataset.p,st=b.dataset.s,cur=(replies.find(function(x){return x.plan_id===pid&&x.parent_id===uid})||{}).status;
   var rr=cur===st?await sb.from("plan_replies").delete().eq("plan_id",pid).eq("parent_id",uid):await sb.from("plan_replies").upsert({plan_id:pid,parent_id:uid,status:st});

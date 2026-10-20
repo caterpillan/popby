@@ -201,7 +201,7 @@ function dayLabel(d){return d.toDateString()===new Date().toDateString()?"Today"
 
 var COLORS=["#4361EE","#E4584A","#2EC4B6","#FFC83D","#7B2CBF","#FF8FAB","#1F8A5F","#F77F00"],EMOJIS=["⚽","🏀","🎂","🎈","🏫","🎒","🌳","🛝","🏠","🎨","🎵","🐶","🚲","🏊","🍕","🌈","⭐","🧸","🍎","🐢","👋","🌻","🚀","🎮"];
 var stars={},pickN={color:COLORS[0],emoji:"👋"},pickE={color:COLORS[0],emoji:"👋"},planHides=[];
-var sb,uid=null,me=null,kids=[],blocked=[],dismissed=[],safeT=null,circles=[],plans=[],replies=[],pending=[],copyOf={},copyOK=false,replyWho={},extraN={},whoOK=false,sel="all",subscribed=false,toastFor=null,toastKind="New",timer=null;
+var sb,uid=null,me=null,kids=[],blocked=[],dismissed=[],safeT=null,circles=[],plans=[],replies=[],pending=[],copyOf={},copyOK=false,replyWho={},extraN={},whoOK=false,headN={},sel="all",subscribed=false,toastFor=null,toastKind="New",timer=null;
 var SW=["#1F8A5F","#E8A400","#3B6FE0","#E4584A","#8A3FC0","#E0457B","#0E8F8F","#F08A24","#6C8FB8"],CD={g:"#1F8A5F",m:"#E8A400",h:"#3B6FE0"};
 var cols=(function(){var c={g:CD.g,m:CD.m,h:CD.h};try{var j=JSON.parse(localStorage.getItem("pr_cols")||"{}");["g","m","h"].forEach(function(k){if(SW.indexOf(j[k])>-1)c[k]=j[k]})}catch(e){}return c})(),cardOpen={};
 var circRoster={},sponsors=[],spPick={top:"",bottom:""},adArea=(function(){try{return localStorage.getItem("pr_adarea")||""}catch(e){return ""}})(),sponsorSeen={},sponsorHidden={top:false,bottom:false},pcs={},nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null,counts={},reminders={},ckw=null,profPriv={};
@@ -279,9 +279,9 @@ async function load(){
   sb.from("profiles_private").select("first_name,last_name").eq("parent_id",uid).maybeSingle(),
   sb.from("plan_circles").select("plan_id,circle_id"),
   sb.from("sponsors").select("id,name,headline,body,link_url,image_url,emoji,target_areas,target_countries"),
-  sb.from("plan_who").select("plan_id,names"),sb.rpc("my_plan_copies"),sb.from("plan_reply_who").select("plan_id,parent_id,names,head"),sb.rpc("reply_extra")]);
+  sb.from("plan_who").select("plan_id,names"),sb.rpc("my_plan_copies"),sb.from("plan_reply_who").select("plan_id,parent_id,names,head"),sb.rpc("reply_extra"),sb.rpc("reply_heads")]);
  if(r[2]&&r[2].error&&/description/i.test(r[2].error.message||"")){r[2]=await sb.from("circle_members").select("circle_id,role,status,show_names,circles!circle_id(name,invite_code,ends_on,color,emoji,created_by)").eq("parent_id",uid)}
- var bad=r.find(function(x,i){return x.error&&i!==11&&i!==12&&i!==13&&i!==14&&i!==15&&i!==16&&i!==17});profPriv=(r[11]&&r[11].data)||{};whoOK=!!(r[16]&&!r[16].error&&r[17]&&!r[17].error);replyWho={};extraN={};if(whoOK){(r[16].data||[]).forEach(function(x){replyWho[x.plan_id+"|"+x.parent_id]=x});(r[17].data||[]).forEach(function(x){(extraN[x.plan_id]=extraN[x.plan_id]||{})[x.status]=x.n})}copyOK=!!(r[15]&&!r[15].error);copyOf={};((r[15]&&r[15].data)||[]).forEach(function(x){copyOf[x.plan_id]=x.original_id});if(bad){toast("Couldn't load: "+bad.error.message)}
+ var bad=r.find(function(x,i){return x.error&&i!==11&&i!==12&&i!==13&&i!==14&&i!==15&&i!==16&&i!==17&&i!==18});profPriv=(r[11]&&r[11].data)||{};whoOK=!!(r[16]&&!r[16].error&&r[17]&&!r[17].error);replyWho={};extraN={};headN={};((r[18]&&!r[18].error&&r[18].data)||[]).forEach(function(x){headN[x.plan_id+"|"+x.parent_id]=x.head});if(whoOK){(r[16].data||[]).forEach(function(x){replyWho[x.plan_id+"|"+x.parent_id]=x});(r[17].data||[]).forEach(function(x){(extraN[x.plan_id]=extraN[x.plan_id]||{})[x.status]=x.n})}copyOK=!!(r[15]&&!r[15].error);copyOf={};((r[15]&&r[15].data)||[]).forEach(function(x){copyOf[x.plan_id]=x.original_id});if(bad){toast("Couldn't load: "+bad.error.message)}
  me=r[0].data;kids=r[1].data||[];circles=r[2].data||[];plans=r[3].data||[];
  var whoMap={};(r[14]&&r[14].data||[]).forEach(function(x){whoMap[x.plan_id]=x.names});plans.forEach(function(p){if(whoMap[p.id])p.who_names=whoMap[p.id]});replies=r[4].data||[];pending=r[5].data||[];
  pcs={};(r[12]&&r[12].data||[]).forEach(function(x){(pcs[x.plan_id]=pcs[x.plan_id]||[]).push(x.circle_id)});
@@ -296,6 +296,7 @@ if(r[13]&&r[13].error){try{r[13]=await sb.from("sponsors").select("id,name,headl
  if(toastFor){var p=plans.find(function(x){return x.id===toastFor});if(p)toast(toastKind+": "+hostName(p)+" · "+p.title+", "+tm(new Date(p.starts_at))+"–"+tm(new Date(p.ends_at)));toastFor=null;toastKind="New"}
  draw();
 }
+function hd(pid,par){return headN[pid+"|"+par]||(replyWho[pid+"|"+par]||{}).head||1}
 function xN(pid,st){return ((extraN[pid]||{})[st])||0}
 function hasMyCopy(pid){return Object.keys(copyOf).some(function(c){return copyOf[c]===pid&&plans.some(function(q){return q.id===c&&!q.cancelled_at})})}
 function approved(){return circles.filter(function(c){return c.status==="approved"&&c.circles&&!(c.circles.ends_on&&daysLeft(c.circles.ends_on)<0)})}
@@ -649,9 +650,9 @@ function whoSheet(pid,st){
  var p=plans.find(function(x){return x.id===pid});if(!p)return;
  var rs=replies.filter(function(r){return r.plan_id===pid&&r.status===st}),hn=(st==="going"&&!p.cancelled_at)?1:0,hshow=hn&&p.host&&p.host.display_name,tot=Math.max(((counts[pid]||{})[st])||0,rs.length)+hn,other=tot-rs.length-(hshow?1:0);
  var lbl=st==="going"?"Going":"Maybe";
- var rows=(hshow?'<div class="req"><b>'+esc(p.host.display_name)+(p.host_id===uid?' <span class="where">(you)</span>':'')+' <span class="where">organiser</span></b></div>':'')+rs.map(function(r){var nm=(r.parents&&r.parents.display_name)||"Someone";var fw=(r.parent_id===uid||p.host_id===uid)?replyWho[pid+"|"+r.parent_id]:null;return '<div class="req"><b>'+esc(nm)+(r.parent_id===uid?' <span class="where">(you)</span>':'')+'</b>'+(fw&&fw.head>1?'<span class="where">Coming: '+esc(fw.names)+'</span>':'')+'</div>'}).join("");
+ var rows=(hshow?'<div class="req"><b>'+esc(p.host.display_name)+(p.host_id===uid?' <span class="where">(you)</span>':'')+' <span class="where">organiser</span></b></div>':'')+rs.map(function(r){var nm=(r.parents&&r.parents.display_name)||"Someone";var fw=(r.parent_id===uid||p.host_id===uid)?replyWho[pid+"|"+r.parent_id]:null;return '<div class="req"><b>'+esc(nm)+(r.parent_id===uid?' <span class="where">(you)</span>':'')+'</b>'+(hd(pid,r.parent_id)>1?' <span class="where">+'+(hd(pid,r.parent_id)-1)+'</span>':'')+(fw&&fw.head>1?'<span class="where">Coming: '+esc(fw.names)+'</span>':'')+'</div>'}).join("");
  var note=other>0?'<p class="hint">'+(rs.length||hshow?'+ '+other+' other '+(other===1?'person':'people'):other+(other===1?' person':' people'))+' who chose not to show their name'+(other===1?'':'s')+'.</p>':'';
- var xt=xN(pid,st),xnote=xt>0?'<p class="hint">+ '+xt+' family '+(xt===1?'member':'members')+' coming with them.</p>':'';
+ var xt=xN(pid,st)-rs.reduce(function(s,r){return s+hd(pid,r.parent_id)-1},0),xnote=xt>0?'<p class="hint">+ '+xt+' more '+(xt===1?'person':'people')+' coming with others.</p>':'';
  setSheet(backBtn("close")+'<h2>'+lbl+' · '+esc(p.title)+'</h2>'+(rows?'<div class="card" style="padding:6px 14px">'+rows+'</div>':'')+note+xnote+(!rows&&!note&&!xnote?'<p class="hint">No one yet.</p>':''));
 }
 function replyWhoSheet(pid,st){
@@ -680,9 +681,10 @@ function draw(){
   var party=p.kind==="party",s=new Date(p.starts_at),e=new Date(p.ends_at);
   var rs=replies.filter(function(r){return r.plan_id===p.id}),myR=(rs.find(function(r){return r.parent_id===uid})||{}).status;
   var gs=rs.filter(function(r){return r.status==="going"}),ms=rs.filter(function(r){return r.status==="maybe"});
-  var fn=function(a){return a.map(function(r){return(r.parents&&r.parents.display_name||"").split(" ")[0]}).join(", ")};
+  var fn=function(a){return a.map(function(r){var k=r.parent_id?hd(p.id,r.parent_id):1;return(r.parents&&r.parents.display_name||"").split(" ")[0]+(k>1?" +"+(k-1):"")}).join(", ")};
+  var xl=function(a){return a.reduce(function(s,r){return s+(r.parent_id?hd(p.id,r.parent_id)-1:0)},0)};
   var C=counts[p.id]||{},hg=p.cancelled_at?0:1,gs2=(hg&&p.host&&p.host.display_name)?[{parents:p.host}].concat(gs):gs,ng=Math.max(C.going||0,gs.length)+hg+xN(p.id,"going"),nm=Math.max(C.maybe||0,ms.length)+xN(p.id,"maybe");
-  var nl=function(a,tot){var n=fn(a),x=tot-a.length;return n?': '+esc(n)+(x>0?' +'+x:''):''};
+  var nl=function(a,tot){var n=fn(a),x=tot-a.length-xl(a);return n?': '+esc(n)+(x>0?' +'+x:''):''};
   var cnt=(ng?'<b>'+ng+' going</b>'+nl(gs2,ng):'')+(ng&&nm?' · ':'')+(nm?nm+' might pop by'+nl(ms,nm):'')||'No replies yet';
   var isNow=s<=now&&now<=e,ended=e<now,host=p.host_id===uid;
   var canc=!!p.cancelled_at,hand=canc&&!!p.handover_until&&new Date(p.handover_until)>now,orig=(p.orig&&p.orig.display_name)||(p.orig_host_id?"A member":"The organiser");

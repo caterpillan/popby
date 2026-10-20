@@ -253,7 +253,7 @@ async function load(){
  var r=await Promise.all([
   sb.from("parents").select("*").eq("id",uid).maybeSingle(),
   sb.from("children").select("*").eq("parent_id",uid),
-  sb.from("circle_members").select("circle_id,role,status,show_names,circles!circle_id(name,invite_code,ends_on,color,emoji)").eq("parent_id",uid),
+  sb.from("circle_members").select("circle_id,role,status,show_names,circles!circle_id(name,invite_code,ends_on,color,emoji,created_by)").eq("parent_id",uid),
   sb.from("plans").select("*,host:parents!host_id(display_name),orig:parents!orig_host_id(display_name),child:children!child_id(first_name),circle:circles!circle_id(name)").gte("ends_at",start.toISOString()).order("starts_at"),
   sb.from("plan_replies").select("plan_id,parent_id,status,parents!parent_id(display_name)"),
   sb.rpc("pending_requests"),
@@ -322,9 +322,13 @@ function planSheet(){
 }
 function circlesSheet(msg){
  var ap=approved(),wait=circles.filter(function(c){return c.status==="pending"});
- var cards=ap.map(function(c){var ci=c.circles,id=c.circle_id;
-  return '<div class="card"><div class="top"><div style="display:flex;gap:12px;align-items:center"><span class="dbub">'+bub(ci)+'</span><div><b>'+esc(cname(id,ci.name))+'</b>'+(nicks[id]?'<div class="where">'+esc(ci.name)+'</div>':'')+'<div class="where">'+(c.role==="organiser"?"You organise this circle · ":"")+esc(endLabel(ci.ends_on))+'</div></div></div><button class="b sm" data-a="opencircle" data-c="'+esc(id)+'">Open</button></div></div>'}).join("")
-  +wait.map(function(c){return '<div class="card"><div class="top"><div><b>Waiting for approval</b><div class="where">The organiser has to approve you first</div></div><button class="b sm del" data-a="leave" data-c="'+esc(c.circle_id)+'">Withdraw</button></div></div>'}).join("");
+ var cardOf=function(c){var ci=c.circles,id=c.circle_id,mine=ci.created_by===uid;
+  var tag=mine?"You created this circle":(c.role==="organiser"?"You help organise this circle":"You joined this circle");
+  return '<div class="card"><div class="top"><div style="display:flex;gap:12px;align-items:center"><span class="dbub">'+bub(ci)+'</span><div><b>'+esc(cname(id,ci.name))+'</b>'+(nicks[id]?'<div class="where">'+esc(ci.name)+'</div>':'')+'<div class="where">'+esc(tag)+' · '+esc(endLabel(ci.ends_on))+'</div></div></div><button class="b sm" data-a="opencircle" data-c="'+esc(id)+'">Open</button></div></div>'};
+ var made=ap.filter(function(c){return c.circles.created_by===uid}),joined=ap.filter(function(c){return c.circles.created_by!==uid});
+ var grp=function(t,a){return a.length?'<h2 style="font-size:18px;margin:16px 0 8px">'+t+' <span class="where" style="font-size:14px;font-weight:600">'+a.length+'</span></h2>'+a.map(cardOf).join(""):""};
+ var cards=grp("Circles I created",made)+grp("Circles I joined",joined)
+  +(wait.length?'<h2 style="font-size:18px;margin:16px 0 8px">Waiting to join</h2>':'')+wait.map(function(c){return '<div class="card"><div class="top"><div><b>Waiting for approval</b><div class="where">The organiser has to approve you first</div></div><button class="b sm del" data-a="leave" data-c="'+esc(c.circle_id)+'">Withdraw</button></div></div>'}).join("");
  setSheet(backBtn("close")+'<h2>Your circles</h2><button class="big" data-a="findcircle">Find a circle</button><button class="big" style="background:transparent;color:var(--ink);border:2px solid var(--ink);margin-bottom:16px" data-a="newcircle">Create a new circle</button>'+(cards||'<p class="hint"><b>You\'re not in a circle yet.</b> A circle is a private group for people you know, like a class, a team, a street or a group of mates. Only people in it see your plans. Create one, or ask a friend for their 6-letter code to join theirs.</p>')
  +(pending.length?'<h2 style="font-size:18px;margin-top:16px">Waiting for your approval</h2><div class="card">'+pending.map(function(p){return '<div class="req"><div><b>'+esc(p.display_name)+'</b><div class="where">'+esc(p.circle_name)+'</div></div><div><button class="b sm on" data-a="decide" data-c="'+esc(p.circle_id)+'" data-p="'+esc(p.parent_id)+'" data-y="1">Approve</button> <button class="b sm" data-a="decide" data-c="'+esc(p.circle_id)+'" data-p="'+esc(p.parent_id)+'" data-y="0">Decline</button> <button class="b sm del" data-a="declineblock" data-p="'+esc(p.parent_id)+'">Block</button></div></div>'}).join("")+'<p class="hint">Only approve people you know in real life. Do not recognise someone? Tap Block.</p></div>':'')
  +'<div class="err" id="ce">'+esc(msg||"")+'</div>');

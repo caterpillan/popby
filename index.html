@@ -338,8 +338,8 @@ function circlesSheet(msg){
 function findSheet(msg){
  var join=joinInfo
   ?'<div class="card"><b>'+esc(joinInfo.name)+'</b>'+(joinInfo.description?'<div class="where">'+esc(joinInfo.description)+'</div>':'')+'<div class="where">Organised by '+esc(joinInfo.organiser)+'</div><div class="where">'+esc(endLabel(joinInfo.ends_on))+(joinInfo.ends_on?' ('+esc(longDate(joinInfo.ends_on))+')':'')+'</div><p class="hint">Only join circles run by someone you know. The organiser has to approve you, and you can leave at any time.</p>'+(me&&me.name_public===false?'<div class="card" style="border:2px solid #E8B923;margin:10px 0"><b>Good to know</b><p style="margin:4px 0 0;font-size:14px">Other members will not see your name or your family members\' names until you turn on <b>Show my name to everyone</b> in Settings. The organiser can always see them.</p></div>':'')+(joinInfo.options?'<label>Secret word</label><p class="hint">The organiser gave you a secret word. Pick it from the list. <b>You only get one try.</b></p><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+joinInfo.options.map(function(w){return '<button class="b sm'+(joinInfo.word===w?' on':'')+'" data-a="pickword" data-w="'+esc(w)+'">'+esc(w)+'</button>'}).join("")+'</div>':'')+'<label>Your name on replies</label><button class="b sm'+(joinInfo.show?' on':'')+'" data-a="joinshow">Show my name: '+(joinInfo.show?'On':'Off')+'</button><p class="hint">Off (recommended): only the person who posted an activity sees your name on your reply. Everyone still sees the totals, like "3 going". You can change this later in the circle\'s settings.</p><button class="big" data-a="joincircle">Request to join</button><button class="link" data-a="clearjoin">Not this one</button></div>'
-  :'<label for="cj">Invite code</label><input id="cj" maxlength="6" placeholder="ABC123" style="text-transform:uppercase"><button class="big" data-a="lookup">Find circle</button>';
- setSheet(backBtn("circles")+'<h2>Find a circle</h2><p class="hint">Ask the organiser for the 6-letter invite code.</p>'+join+'<div class="err" id="ce">'+esc(msg||"")+'</div>');
+  :'<label for="cj">Circle code</label><input id="cj" maxlength="6" placeholder="ABC123" style="text-transform:uppercase"><button class="big" data-a="lookup">Find circle</button>';
+ setSheet(backBtn("circles")+'<h2>Find a circle</h2><p class="hint">Ask the organiser for the 6-letter circle code.</p>'+join+'<div class="err" id="ce">'+esc(msg||"")+'</div>');
 }
 function newCircleSheet(msg){
  setSheet(backBtn("circles")+'<h2>Create a new circle</h2>'
@@ -381,7 +381,7 @@ function circleSheet(cid,msg){
   +'<label for="nn">Your own name for this circle</label><input id="nn" value="'+esc(nicks[cid]||"")+'" placeholder="'+esc(ci.name)+'"><p class="hint">Only you see this name. Leave empty to use the circle name.</p><button class="b sm on" data-a="savenick" data-c="'+esc(cid)+'">Save name</button>';
  setSheet(backBtn("circles")+'<div style="display:flex;gap:12px;align-items:center"><span class="dbub">'+bub(ci)+'</span><h2 style="margin:0">'+esc(cname(cid,ci.name))+'</h2></div>'+(nicks[cid]?'<p class="hint">Circle name: '+esc(ci.name)+'</p>':'')+(ci.description?'<p class="hint" style="margin:8px 0 0">'+esc(ci.description)+'</p>':'')
  +'<div class="err" id="ce3">'+esc(msg||"")+'</div><div style="height:6px"></div>'
- +acc("c_code","Invite code",code)
+ +acc("c_code","Circle code",code)
  +acc("c_mem","Members ("+act.length+")",mem)
  +acc("c_end","End date · "+esc(endLabel(ci.ends_on)),endB)
  +(org?acc("c_desc","Description"+(ci.description?"":" · none"),descB)+acc("c_look","Circle look",lookB)+acc("c_kw","Secret word check · "+(ckw?"On":"Off"),kwB):'')
@@ -446,11 +446,11 @@ var FUN=[["\ud83c\udf33","Quiet on PopRound today. Go and have some fun!","Take 
  ["\u26bd","No plans in your circle right now.","Be the one who starts it. A kickabout, a coffee, a walk."],
  ["\ud83c\udf88","The best plans start with one message.","Tell your circle where you will be. Friends turn up if they are free."],
  ["\ud83d\udeb2","Time to get out there.","Put the phone down, grab a friend and go somewhere fun."],
- ["\ud83e\uddc1","See you in real life?","Invite a friend along to something simple: a play date, a picnic, a pint."],
+ ["\ud83e\uddc1","See you in real life?","Bring a friend along to something simple: a play date, a picnic, a pint."],
  ["\ud83c\udf27\ufe0f","Nothing on? That is your cue.","Rain or shine, there is a soft play, a cafe or a pub with your name on it."]];
 function quietCard(ap){var d=new Date(),k=d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());try{if(localStorage.getItem("pr_quiet")===k)return ""}catch(e){}
  var n=Math.floor(d.getTime()/864e5)%FUN.length,m=FUN[n],cid=(sel!=="all"&&ap.some(function(c){return c.circle_id===sel}))?sel:(ap[0]&&ap[0].circle_id);
- return '<div class="card fun"><div class="fune" aria-hidden="true">'+m[0]+'</div><b style="display:block;font-size:18px">'+esc(m[1])+'</b><p class="where" style="margin:6px 0 12px">'+esc(m[2])+'</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="b sm on" data-a="newplan">Share an activity</button>'+(cid?'<button class="b sm" data-a="sharecode" data-c="'+esc(cid)+'">Invite a friend</button>':'')+'</div><button class="link" style="font-size:12px;margin-top:6px;width:auto;padding:4px 0" data-a="quietno">Hide for today</button></div>'}
+ return '<div class="card fun"><div class="fune" aria-hidden="true">'+m[0]+'</div><b style="display:block;font-size:18px">'+esc(m[1])+'</b><p class="where" style="margin:6px 0 12px">'+esc(m[2])+'</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="b sm on" data-a="newplan">Share an activity</button>'+(cid?'<button class="b sm" data-a="sharecode" data-c="'+esc(cid)+'">Add a friend</button>':'')+'</div><button class="link" style="font-size:12px;margin-top:6px;width:auto;padding:4px 0" data-a="quietno">Hide for today</button></div>'}
 function curTheme(){try{return localStorage.getItem("pr_theme")||"auto"}catch(e){return "auto"}}
 function applyTheme(t){var r=document.documentElement;if(t==="light"||t==="dark")r.setAttribute("data-theme",t);else r.removeAttribute("data-theme")}
 function acc(k,title,body){var o=!!profOpen[k];return '<div class="acc'+(o?' open':'')+'"><button class="acch" data-a="sec" data-k="'+k+'" aria-expanded="'+o+'"><span>'+title+'</span><span class="chev" aria-hidden="true">&#8250;</span></button><div class="accb">'+body+'</div></div>'}
@@ -774,7 +774,7 @@ async function act(b){
   var sr=await sb.rpc("set_leave_reminder",{p_plan:lp2.id,p_at:at.toISOString()});if(sr.error){E("le",sr.error.message);return}
   setSheet("");toast("Alert set for "+tm(at));await load()}
  else if(a==="clearleave"){var cl=await sb.rpc("clear_leave_reminder",{p_plan:b.dataset.p});if(cl.error)throw cl.error;setSheet("");toast("Alert turned off");await load()}
- else if(a==="lookup"){var cd=v("cj");if(!cd){E("ce","Enter the invite code.");return}
+ else if(a==="lookup"){var cd=v("cj");if(!cd){E("ce","Enter the circle code.");return}
   var lk=await sb.rpc("circle_preview",{p_code:cd});if(lk.error)throw lk.error;
   if(!lk.data||!lk.data.length){E("ce","No circle with that code, or it has ended.");return}
   var jo=await sb.rpc("circle_join_options",{p_code:cd});

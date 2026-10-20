@@ -201,7 +201,7 @@ function dayLabel(d){return d.toDateString()===new Date().toDateString()?"Today"
 
 var COLORS=["#4361EE","#E4584A","#2EC4B6","#FFC83D","#7B2CBF","#FF8FAB","#1F8A5F","#F77F00"],EMOJIS=["⚽","🏀","🎂","🎈","🏫","🎒","🌳","🛝","🏠","🎨","🎵","🐶","🚲","🏊","🍕","🌈","⭐","🧸","🍎","🐢","👋","🌻","🚀","🎮"];
 var stars={},pickN={color:COLORS[0],emoji:"👋"},pickE={color:COLORS[0],emoji:"👋"},planHides=[];
-var sb,uid=null,me=null,kids=[],blocked=[],dismissed=[],safeT=null,circles=[],plans=[],replies=[],pending=[],copyOf={},copyOK=false,sel="all",subscribed=false,toastFor=null,toastKind="New",timer=null;
+var sb,uid=null,me=null,kids=[],blocked=[],dismissed=[],safeT=null,circles=[],plans=[],replies=[],pending=[],copyOf={},copyOK=false,replyWho={},extraN={},whoOK=false,sel="all",subscribed=false,toastFor=null,toastKind="New",timer=null;
 var SW=["#1F8A5F","#E8A400","#3B6FE0","#E4584A","#8A3FC0","#E0457B","#0E8F8F","#F08A24","#6C8FB8"],CD={g:"#1F8A5F",m:"#E8A400",h:"#3B6FE0"};
 var cols=(function(){var c={g:CD.g,m:CD.m,h:CD.h};try{var j=JSON.parse(localStorage.getItem("pr_cols")||"{}");["g","m","h"].forEach(function(k){if(SW.indexOf(j[k])>-1)c[k]=j[k]})}catch(e){}return c})(),cardOpen={};
 var circRoster={},sponsors=[],spPick={top:"",bottom:""},adArea=(function(){try{return localStorage.getItem("pr_adarea")||""}catch(e){return ""}})(),sponsorSeen={},sponsorHidden={top:false,bottom:false},pcs={},nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null,counts={},reminders={},ckw=null,profPriv={};
@@ -279,9 +279,9 @@ async function load(){
   sb.from("profiles_private").select("first_name,last_name").eq("parent_id",uid).maybeSingle(),
   sb.from("plan_circles").select("plan_id,circle_id"),
   sb.from("sponsors").select("id,name,headline,body,link_url,image_url,emoji,target_areas,target_countries"),
-  sb.from("plan_who").select("plan_id,names"),sb.rpc("my_plan_copies")]);
+  sb.from("plan_who").select("plan_id,names"),sb.rpc("my_plan_copies"),sb.from("plan_reply_who").select("plan_id,parent_id,names,head"),sb.rpc("reply_extra")]);
  if(r[2]&&r[2].error&&/description/i.test(r[2].error.message||"")){r[2]=await sb.from("circle_members").select("circle_id,role,status,show_names,circles!circle_id(name,invite_code,ends_on,color,emoji,created_by)").eq("parent_id",uid)}
- var bad=r.find(function(x,i){return x.error&&i!==11&&i!==12&&i!==13&&i!==14&&i!==15});profPriv=(r[11]&&r[11].data)||{};copyOK=!!(r[15]&&!r[15].error);copyOf={};((r[15]&&r[15].data)||[]).forEach(function(x){copyOf[x.plan_id]=x.original_id});if(bad){toast("Couldn't load: "+bad.error.message)}
+ var bad=r.find(function(x,i){return x.error&&i!==11&&i!==12&&i!==13&&i!==14&&i!==15&&i!==16&&i!==17});profPriv=(r[11]&&r[11].data)||{};whoOK=!!(r[16]&&!r[16].error&&r[17]&&!r[17].error);replyWho={};extraN={};if(whoOK){(r[16].data||[]).forEach(function(x){replyWho[x.plan_id+"|"+x.parent_id]=x});(r[17].data||[]).forEach(function(x){(extraN[x.plan_id]=extraN[x.plan_id]||{})[x.status]=x.n})}copyOK=!!(r[15]&&!r[15].error);copyOf={};((r[15]&&r[15].data)||[]).forEach(function(x){copyOf[x.plan_id]=x.original_id});if(bad){toast("Couldn't load: "+bad.error.message)}
  me=r[0].data;kids=r[1].data||[];circles=r[2].data||[];plans=r[3].data||[];
  var whoMap={};(r[14]&&r[14].data||[]).forEach(function(x){whoMap[x.plan_id]=x.names});plans.forEach(function(p){if(whoMap[p.id])p.who_names=whoMap[p.id]});replies=r[4].data||[];pending=r[5].data||[];
  pcs={};(r[12]&&r[12].data||[]).forEach(function(x){(pcs[x.plan_id]=pcs[x.plan_id]||[]).push(x.circle_id)});
@@ -296,6 +296,7 @@ if(r[13]&&r[13].error){try{r[13]=await sb.from("sponsors").select("id,name,headl
  if(toastFor){var p=plans.find(function(x){return x.id===toastFor});if(p)toast(toastKind+": "+hostName(p)+" · "+p.title+", "+tm(new Date(p.starts_at))+"–"+tm(new Date(p.ends_at)));toastFor=null;toastKind="New"}
  draw();
 }
+function xN(pid,st){return ((extraN[pid]||{})[st])||0}
 function hasMyCopy(pid){return Object.keys(copyOf).some(function(c){return copyOf[c]===pid&&plans.some(function(q){return q.id===c&&!q.cancelled_at})})}
 function approved(){return circles.filter(function(c){return c.status==="approved"&&c.circles&&!(c.circles.ends_on&&daysLeft(c.circles.ends_on)<0)})}
 async function loadContacts(){var pc=await sb.from("parents").select("id,display_name").neq("id",uid).order("display_name");var hh=await sb.from("hidden_from").select("hidden_id");contacts=pc.data||[];hiddenIds=(hh.data||[]).map(function(x){return x.hidden_id})}
@@ -490,7 +491,7 @@ function replySheet(pid,msg){
  var p=plans.find(function(x){return x.id===pid});if(!p){setSheet("");return}
  var my=(replies.find(function(x){return x.plan_id===pid&&x.parent_id===uid})||{}).status,party=p.kind==="party",s0=new Date(p.starts_at),r=reminders[pid],fut=r&&new Date(r)>new Date();
  setSheet(backBtn("close")+'<h2>Your reply</h2><div class="card"><b>'+esc(p.title)+'</b><div class="where">'+esc(dayLabel(s0))+', '+tm(s0)+' \u00b7 '+esc(p.place_name)+'</div></div>'
-  +'<p class="hint" style="margin-top:12px">Change your mind any time. The host sees the update.</p>'
+  +'<p class="hint" style="margin-top:12px">Change your mind any time. The host sees the update.'+(whoOK&&kids.length&&my?' Tap Going or Maybe to change who is coming.':'')+'</p>'
   +'<div style="display:grid;gap:8px;margin-top:8px"><button class="b'+(my==="maybe"?' on':'')+'" data-a="setreply" data-s="maybe" data-p="'+esc(pid)+'">'+(party?"Maybe":"I might pop by")+'</button><button class="b'+(my==="going"?' on':'')+'" data-a="setreply" data-s="going" data-p="'+esc(pid)+'">'+(party?"Going":"See you there")+'</button></div>'
   +(my?'<h2 style="font-size:18px;margin-top:18px">Leave-by alert</h2><p class="hint">'+(fut?'You will get a notification at '+tm(new Date(r))+'.':'No alert set.')+'</p><button class="b sm" data-a="leavesheet" data-p="'+esc(pid)+'">'+(fut?'Change the time':'Set a leave-by alert')+'</button>':'')
   +(my?'<button class="link" style="margin-top:12px" data-a="removereply" data-p="'+esc(pid)+'">Take back my reply</button>':'')
@@ -648,12 +649,20 @@ function whoSheet(pid,st){
  var p=plans.find(function(x){return x.id===pid});if(!p)return;
  var rs=replies.filter(function(r){return r.plan_id===pid&&r.status===st}),hn=(st==="going"&&!p.cancelled_at)?1:0,hshow=hn&&p.host&&p.host.display_name,tot=Math.max(((counts[pid]||{})[st])||0,rs.length)+hn,other=tot-rs.length-(hshow?1:0);
  var lbl=st==="going"?"Going":"Maybe";
- var rows=(hshow?'<div class="req"><b>'+esc(p.host.display_name)+(p.host_id===uid?' <span class="where">(you)</span>':'')+' <span class="where">organiser</span></b></div>':'')+rs.map(function(r){var nm=(r.parents&&r.parents.display_name)||"Someone";return '<div class="req"><b>'+esc(nm)+(r.parent_id===uid?' <span class="where">(you)</span>':'')+'</b></div>'}).join("");
+ var rows=(hshow?'<div class="req"><b>'+esc(p.host.display_name)+(p.host_id===uid?' <span class="where">(you)</span>':'')+' <span class="where">organiser</span></b></div>':'')+rs.map(function(r){var nm=(r.parents&&r.parents.display_name)||"Someone";var fw=(r.parent_id===uid||p.host_id===uid)?replyWho[pid+"|"+r.parent_id]:null;return '<div class="req"><b>'+esc(nm)+(r.parent_id===uid?' <span class="where">(you)</span>':'')+'</b>'+(fw&&fw.head>1?'<span class="where">Coming: '+esc(fw.names)+'</span>':'')+'</div>'}).join("");
  var note=other>0?'<p class="hint">'+(rs.length||hshow?'+ '+other+' other '+(other===1?'person':'people'):other+(other===1?' person':' people'))+' who chose not to show their name'+(other===1?'':'s')+'.</p>':'';
- setSheet(backBtn("close")+'<h2>'+lbl+' · '+esc(p.title)+'</h2>'+(rows?'<div class="card" style="padding:6px 14px">'+rows+'</div>':'')+note+(!rows&&!note?'<p class="hint">No one yet.</p>':''));
+ var xt=xN(pid,st),xnote=xt>0?'<p class="hint">+ '+xt+' family '+(xt===1?'member':'members')+' coming with them.</p>':'';
+ setSheet(backBtn("close")+'<h2>'+lbl+' · '+esc(p.title)+'</h2>'+(rows?'<div class="card" style="padding:6px 14px">'+rows+'</div>':'')+note+xnote+(!rows&&!note&&!xnote?'<p class="hint">No one yet.</p>':''));
+}
+function replyWhoSheet(pid,st){
+ var p=plans.find(function(x){return x.id===pid});if(!p)return;
+ var ex=replyWho[pid+"|"+uid],sel=ex?ex.names.split(", "):null,lbl=st==="going"?(p.kind==="party"?"Going":"See you there"):(p.kind==="party"?"Maybe":"I might pop by");
+ setSheet(backBtn("close")+'<h2>Who is coming?</h2><div class="card"><b>'+esc(p.title)+'</b><div class="where">'+esc(dayLabel(new Date(p.starts_at)))+', '+tm(new Date(p.starts_at))+' \u00b7 '+esc(p.place_name)+'</div></div>'
+  +whoBoxes(sel)+'<p class="hint">Everyone sees how many are coming. Only the organiser sees who, and only if you chose to show your name in the circle.</p>'
+  +'<div class="err" id="rw_e"></div><button class="big" data-a="sendreply" data-p="'+esc(pid)+'" data-s="'+esc(st)+'">'+esc(lbl)+'</button><button class="link" data-a="close">Cancel</button>');
 }
 function cancelSheet(pid){
- var p=plans.find(function(x){return x.id===pid})||{title:"this activity"},c=counts[pid]||{},n=(c.going||0)+(c.maybe||0);
+ var p=plans.find(function(x){return x.id===pid})||{title:"this activity"},c=counts[pid]||{},n=(c.going||0)+(c.maybe||0)+xN(pid,"going")+xN(pid,"maybe");
  setSheet('<h2>Cancel "'+esc(p.title)+'"?</h2><p class="hint">'+n+(n===1?' person has':' people have')+' said they are going or might. What should happen?</p>'
   +'<button class="big" data-a="cancelplan" data-k="1" data-p="'+esc(pid)+'">Let others keep it going</button>'
   +'<p class="hint">It stays on the list as "Organiser cancelled" for an hour. Everyone who replied gets an alert, and any of them can take it over. If nobody does, it ends.</p>'
@@ -672,7 +681,7 @@ function draw(){
   var rs=replies.filter(function(r){return r.plan_id===p.id}),myR=(rs.find(function(r){return r.parent_id===uid})||{}).status;
   var gs=rs.filter(function(r){return r.status==="going"}),ms=rs.filter(function(r){return r.status==="maybe"});
   var fn=function(a){return a.map(function(r){return(r.parents&&r.parents.display_name||"").split(" ")[0]}).join(", ")};
-  var C=counts[p.id]||{},hg=p.cancelled_at?0:1,gs2=(hg&&p.host&&p.host.display_name)?[{parents:p.host}].concat(gs):gs,ng=Math.max(C.going||0,gs.length)+hg,nm=Math.max(C.maybe||0,ms.length);
+  var C=counts[p.id]||{},hg=p.cancelled_at?0:1,gs2=(hg&&p.host&&p.host.display_name)?[{parents:p.host}].concat(gs):gs,ng=Math.max(C.going||0,gs.length)+hg+xN(p.id,"going"),nm=Math.max(C.maybe||0,ms.length)+xN(p.id,"maybe");
   var nl=function(a,tot){var n=fn(a),x=tot-a.length;return n?': '+esc(n)+(x>0?' +'+x:''):''};
   var cnt=(ng?'<b>'+ng+' going</b>'+nl(gs2,ng):'')+(ng&&nm?' · ':'')+(nm?nm+' might pop by'+nl(ms,nm):'')||'No replies yet';
   var isNow=s<=now&&now<=e,ended=e<now,host=p.host_id===uid;
@@ -693,7 +702,7 @@ function draw(){
   +(canc?'<div class="where" style="color:var(--coral);font-weight:700;margin-top:8px">'+(host?'You cancelled this.':esc(orig)+' cancelled this.')+(hand?(host?' People who said they were going can keep it going until ':' You can keep it going until ')+tm(new Date(p.handover_until))+'.':'')+'</div>':'')+(!canc&&p.orig_host_id&&p.orig_host_id!==p.host_id?'<div class="where" style="font-size:12px;margin-top:6px">Originally planned by '+esc(orig)+'</div>':'')+(p.edited_at&&!ended&&!canc?'<div class="where" style="color:var(--coral);font-weight:700;margin-top:6px">Updated '+esc(ago(p.edited_at))+'</div>':'')
   +(clash.length?'<div class="where" style="color:#B3261E;font-weight:700;margin-top:8px">\u26A0 Clashes with '+clash.map(function(q){return esc(q.title)}).join(", ")+'</div>':'')
   +'<div class="cfoot"><div class="where" style="font-size:13px"><b style="color:var(--ink)">'+esc(hostName(p))+'</b>'+(p.created_at?' &nbsp;Sent '+esc(sentAt(p.created_at)):'')+'</div>'+btns+'</div>'
-  +(canc?(host?'':hand&&myR?'<button class="big" style="margin-top:10px" data-a="keepplan" data-p="'+esc(p.id)+'">Keep it going</button>':'<button class="link" style="font-size:13px;margin-top:8px" data-a="dismiss" data-p="'+esc(p.id)+'">Hide this</button>'):host?'':myR?'<div class="mine"><b>\u2713 '+(myR==="going"?"You\'re going":(party?"You said maybe":"You might pop by"))+'</b><button class="b sm" data-a="replysheet" data-p="'+esc(p.id)+'">Change</button></div>':'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px"><button class="b '+(myR==="maybe"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="maybe" data-p="'+esc(p.id)+'">'+l1+'</button><button class="b '+(myR==="going"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="going" data-p="'+esc(p.id)+'">'+l2+'</button><button class="b" style="font-size:13px;padding:9px 4px" data-a="dismiss" data-p="'+esc(p.id)+'">Not for me</button></div>')+(host||!myR||ended||canc?'':'<div class="where" style="margin-top:10px">'+(reminders[p.id]?'🔔 '+(new Date(reminders[p.id])>now?'Leave-by alert at ':'Leave-by alert was at ')+tm(new Date(reminders[p.id]))+(new Date(reminders[p.id])>now?' <button class="b sm" data-a="leavesheet" data-p="'+esc(p.id)+'">Change</button>':''):'<button class="b sm" data-a="leavesheet" data-p="'+esc(p.id)+'">🔔 Set a leave-by alert</button>')+'</div>')+(host||canc?'':'<button class="link" style="font-size:13px;margin-top:8px" data-a="safety" data-p="'+esc(p.id)+'">Report or block</button>');
+  +(canc?(host?'':hand&&myR?'<button class="big" style="margin-top:10px" data-a="keepplan" data-p="'+esc(p.id)+'">Keep it going</button><button class="link" style="font-size:13px;margin-top:8px" data-a="dismiss" data-p="'+esc(p.id)+'">No thanks, hide this</button>':'<button class="link" style="font-size:13px;margin-top:8px" data-a="dismiss" data-p="'+esc(p.id)+'">Hide this</button>'):host?'':myR?'<div class="mine"><b>\u2713 '+(myR==="going"?"You\'re going":(party?"You said maybe":"You might pop by"))+'</b><button class="b sm" data-a="replysheet" data-p="'+esc(p.id)+'">Change</button></div>':'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px"><button class="b '+(myR==="maybe"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="maybe" data-p="'+esc(p.id)+'">'+l1+'</button><button class="b '+(myR==="going"?"on":"go")+'" style="font-size:13px;padding:9px 4px" data-a="reply" data-s="going" data-p="'+esc(p.id)+'">'+l2+'</button><button class="b" style="font-size:13px;padding:9px 4px" data-a="dismiss" data-p="'+esc(p.id)+'">Not for me</button></div>')+(host||!myR||ended||canc?'':'<div class="where" style="margin-top:10px">'+(reminders[p.id]?'🔔 '+(new Date(reminders[p.id])>now?'Leave-by alert at ':'Leave-by alert was at ')+tm(new Date(reminders[p.id]))+(new Date(reminders[p.id])>now?' <button class="b sm" data-a="leavesheet" data-p="'+esc(p.id)+'">Change</button>':''):'<button class="b sm" data-a="leavesheet" data-p="'+esc(p.id)+'">🔔 Set a leave-by alert</button>')+'</div>')+(host||canc?'':'<button class="link" style="font-size:13px;margin-top:8px" data-a="safety" data-p="'+esc(p.id)+'">Report or block</button>');
   return head+(open?tail:'')+'</article>'});
  var qc=(ap.length&&!list.some(function(q){return !q.cancelled_at&&new Date(q.ends_at)>=now}))?quietCard(ap):"",spH=ap.length?sponsorCard("top"):"",spB=ap.length?sponsorCard("bottom",spPick.top):"",cards=(spH&&cardArr.length>3?cardArr.slice(0,3).concat([spH],cardArr.slice(3)):cardArr).join(""),spBottom=cardArr.length>3?spB:spH+spB;
  $("app").innerHTML='<div class="head"><button class="rbtn" data-a="circles" aria-label="Circles'+(pending.length?', '+pending.length+' waiting for approval':'')+'"><img src="icon.svg" alt="" style="width:100%;height:100%;border-radius:50%;display:block">'+(pending.length?'<span class="cnt">'+pending.length+'</span>':'')+'</button><div class="brand"><h1>PopRound</h1></div><button class="rbtn" data-a="profile" aria-label="Settings"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div><p class="sub">Hi '+esc(me.display_name.replace(/\.$/,''))+'. No invites, no pressure. Just: we\'ll be here.</p>'
@@ -759,8 +768,15 @@ async function act(b){
  else if(a==="sec"){var bx=b.parentNode;bx.classList.toggle("open");var isO=bx.classList.contains("open");profOpen[b.dataset.k]=isO;var sk=b.dataset.k;if(isO&&/^(nm|hide|dis|blk|hc_.+)$/.test(sk))profOpen.priv=true;if(sk==="priv"&&!isO)Object.keys(profOpen).forEach(function(q){if(/^(nm|hide|dis|blk|hc_.+)$/.test(q))profOpen[q]=false});b.setAttribute("aria-expanded",String(isO))}
  else if(a==="replysheet"){replySheet(b.dataset.p)}
  else if(a==="setreply"){var sp=b.dataset.p,ss2=b.dataset.s,cr=(replies.find(function(x){return x.plan_id===sp&&x.parent_id===uid})||{}).status;
+  if(whoOK&&kids.length){replyWhoSheet(sp,ss2);return}
   if(cr!==ss2){var sr3=await sb.from("plan_replies").upsert({plan_id:sp,parent_id:uid,status:ss2});if(sr3.error)throw sr3.error;await load()}
   var cl2=cr!==ss2?clashesFor(sp):[];if(cl2.length)clashSheet(sp,cl2);else replySheet(sp,"Updated. The host sees your new reply.")}
+ else if(a==="sendreply"){var rp=b.dataset.p,rs3=b.dataset.s,rw=whoPicked();if(!rw.count){E("rw_e","Tick at least one person who is coming.");return}
+  var rcur=(replies.find(function(x){return x.plan_id===rp&&x.parent_id===uid})||{}).status;
+  var ru=await sb.from("plan_replies").upsert({plan_id:rp,parent_id:uid,status:rs3});if(ru.error)throw ru.error;
+  var rf=await sb.rpc("set_reply_who",{p_plan:rp,p_names:rw.names,p_head:rw.count});if(rf.error)throw rf.error;
+  setSheet("");toast(rs3==="going"?"They know you're coming":"They know you might pop by");await load();
+  if(rcur!==rs3){var cl3=clashesFor(rp);if(cl3.length)clashSheet(rp,cl3)}}
  else if(a==="removereply"){var rr2=await sb.from("plan_replies").delete().eq("plan_id",b.dataset.p).eq("parent_id",uid);if(rr2.error)throw rr2.error;setSheet("");toast("Reply taken back");await load()}
  else if(a==="profile"){await Promise.all([loadContacts(),loadBlocked(),loadHideRosters()]);profileSheet()}
  else if(a==="profilepage"){profilePage()}
@@ -887,6 +903,7 @@ async function act(b){
  else if(a==="sponsorhide"){var hsl=b.dataset.slot||"top",hc=b.closest(".spons[data-sp]");if(hc)spEvent(hc.dataset.sp,"hide",hsl);sponsorHidden[hsl]=true;draw()}
  else if(a==="whosheet"){whoSheet(b.dataset.p,b.dataset.s)}
  else if(a==="reply"){var pid=b.dataset.p,st=b.dataset.s,cur=(replies.find(function(x){return x.plan_id===pid&&x.parent_id===uid})||{}).status;
+  if(cur!==st&&whoOK&&kids.length){replyWhoSheet(pid,st);return}
   var rr=cur===st?await sb.from("plan_replies").delete().eq("plan_id",pid).eq("parent_id",uid):await sb.from("plan_replies").upsert({plan_id:pid,parent_id:uid,status:st});
   if(rr.error)throw rr.error;toast(cur===st?"Removed your reply":(st==="going"?"They know you're going":"They know you might pop by"));await load();
   if(cur!==st){var cl=clashesFor(pid);if(cl.length)clashSheet(pid,cl)}}

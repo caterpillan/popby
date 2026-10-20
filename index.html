@@ -156,7 +156,8 @@ function rudeCheck(ids,errId){for(var i=0;i<ids.length;i++){var el=$(ids[i]);if(
 var APP_VERSION="1.0 (Oct 2026)";
 function adEmailOk(){return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(window.POPROUND_ADS_EMAIL||"").trim())}
 function aboutBox(){var em=String(window.POPROUND_SUPPORT_EMAIL||"").trim(),ok=/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em),l=function(h,t){return '<a class="legal" href="'+h+'" target="_blank" rel="noopener">'+t+' <span aria-hidden="true">&#8250;</span></a>'};
- return l("privacy.html","Privacy policy")+l("terms.html","Terms of use")+l("rules.html","Community rules")+(adEmailOk()?'<a class="legal" href="mailto:'+esc(String(window.POPROUND_ADS_EMAIL).trim())+'?subject=Advertise%20with%20PopRound">Advertise with PopRound <span aria-hidden="true">&#8250;</span></a>':'')+(ok?'<a class="legal" href="mailto:'+esc(em)+'?subject=PopRound%20support">Contact us <span aria-hidden="true">&#8250;</span></a>':'')+'<p class="hint" style="margin-top:10px">PopRound '+APP_VERSION+'<br>\u00A9 2026 Sean James Pillan. All rights reserved.</p>'}
+ return l("privacy.html","Privacy policy")+l("terms.html","Terms of use")+l("rules.html","Community rules")+(adEmailOk()?'<a class="legal" href="mailto:'+esc(String(window.POPROUND_ADS_EMAIL).trim())+'?subject=Advertise%20with%20PopRound">Advertise with PopRound <span aria-hidden="true">&#8250;</span></a>':'')+(ok?'<a class="legal" href="mailto:'+esc(em)+'?subject=PopRound%20support">Contact us <span aria-hidden="true">&#8250;</span></a>':'')+'<div class="card" style="margin-top:10px"><b>Pop round or RSVP?</b><p class="hint" style="margin:6px 0 0"><b>Pop round:</b> friends turn up if they are free, and nobody has to reply. People in your circles can copy it into their own circles (you can switch that off for each activity). <b>RSVP:</b> friends reply Going or Maybe so you know numbers, and it cannot be copied, because it is for the people you chose.</p><p class="hint" style="margin:8px 0 0"><b>Duplicating a Pop round:</b> a copy is a new activity that the copier organises. The original organiser is never shown or told. People who already see the original do not get the copy, so nobody sees it twice, unless the original is cancelled. Activities hidden from anyone cannot be copied.</p></div>'
+ +'<p class="hint" style="margin-top:10px">PopRound '+APP_VERSION+'<br>\u00A9 2026 Sean James Pillan. All rights reserved.</p>'}
 function timeSel(id,hhmm,opt){var h=hhmm?hhmm.slice(0,2):"",m=hhmm?hhmm.slice(3,5):"",ho=opt?'<option value=""'+(h===""?' selected':'')+'>--</option>':'',mo=["00","15","30","45"];if(m&&mo.indexOf(m)<0){mo.push(m);mo.sort()}
  for(var i=0;i<24;i++){var x=pad(i);ho+='<option value="'+x+'"'+(x===h?' selected':'')+'>'+x+'</option>'}
  return '<div class="tsel"><select data-ts="'+id+'" data-tp="h" aria-label="Hour (24 hour)">'+ho+'</select><b>:</b><select data-ts="'+id+'" data-tp="m" aria-label="Minutes">'+mo.map(function(x){return '<option value="'+x+'"'+(x===m?' selected':'')+'>'+x+'</option>'}).join("")+'</select><input type="hidden" id="'+id+'" value="'+(hhmm||"")+'"></div>'}
@@ -187,9 +188,9 @@ function endWarn(cids,dd){
   +' You can still send it, change the day, or extend the end date in the circle\'s settings (organisers only).</div>'}
 function circleWarn(dd){var el=$("cwarn");if(!el)return;var base=(el.dataset.base||"").split(",").filter(Boolean);
  var ids=base.concat(pickedCircles().filter(function(x){return base.indexOf(x)<0}));var w=endWarn(ids,dd);el.innerHTML=w;el.style.display=w?"":"none"}
-document.addEventListener("change",function(e){if(e.target&&e.target.dataset&&e.target.dataset.pc!==undefined)endHint()});
+document.addEventListener("change",function(e){if(e.target&&e.target.dataset&&e.target.dataset.pc!==undefined)endHint();if(e.target&&e.target.id==="pk"){var sh=e.target.value==="dropin"?"":"none";["pcopy_l","pcopy_h"].forEach(function(i){if($(i))$(i).style.display=sh})}});
 document.addEventListener("input",function(e){var t=e.target;if(t&&t.id==="hq"){var q=nrm(t.value);[].forEach.call(document.querySelectorAll("#sheet [data-nm]"),function(r){r.style.display=!q||r.dataset.nm.indexOf(q)>-1?"":"none"});[].forEach.call(document.querySelectorAll("#sheet .acc"),function(g){var b=g.querySelector(".acch");if(!b||!/^hc_/.test(b.dataset.k||""))return;var vis=[].filter.call(g.querySelectorAll("[data-nm]"),function(r){return r.style.display!=="none"}).length;g.style.display=(vis||!q)?"":"none";if(q&&vis){g.classList.add("open");profOpen[b.dataset.k]=true}})}});
-document.addEventListener("input",function(e){if(e.target&&/^(pf|pe|pd|ef|ee|ed2)$/.test(e.target.id))endHint();if(e.target&&/^(pn|en)$/.test(e.target.id)){var cc=$(e.target.id+"_c");if(cc)cc.textContent=e.target.value.length+" / 140"}if(e.target&&/^(cd|cdesc)$/.test(e.target.id)){var cd2=$(e.target.id+"_c");if(cd2)cd2.textContent=e.target.value.length+" / 60"}});
+document.addEventListener("input",function(e){if(e.target&&/^(pf|pe|pd|ef|ee|ed2)$/.test(e.target.id))endHint();if(e.target&&/^(pn|en|dn)$/.test(e.target.id)){var cc=$(e.target.id+"_c");if(cc)cc.textContent=e.target.value.length+" / 140"}if(e.target&&/^(cd|cdesc)$/.test(e.target.id)){var cd2=$(e.target.id+"_c");if(cd2)cd2.textContent=e.target.value.length+" / 60"}});
 function parseTime(t){t=(t||"").toLowerCase().replace(/\./g,"").trim();var m=t.match(/^(\d{1,2})(?:[:\s]?(\d{2}))?\s*(am|pm|a|p)?$/);if(!m)return null;var h=+m[1],mi=m[2]?+m[2]:0,ap=m[3];if(mi>59)return null;
  if(ap){if(h<1||h>12)return null;if(ap[0]==="p"&&h<12)h+=12;if(ap[0]==="a"&&h===12)h=0}else if(h>23)return null;
  return pad(h)+":"+pad(mi)}
@@ -200,7 +201,7 @@ function dayLabel(d){return d.toDateString()===new Date().toDateString()?"Today"
 
 var COLORS=["#4361EE","#E4584A","#2EC4B6","#FFC83D","#7B2CBF","#FF8FAB","#1F8A5F","#F77F00"],EMOJIS=["⚽","🏀","🎂","🎈","🏫","🎒","🌳","🛝","🏠","🎨","🎵","🐶","🚲","🏊","🍕","🌈","⭐","🧸","🍎","🐢","👋","🌻","🚀","🎮"];
 var stars={},pickN={color:COLORS[0],emoji:"👋"},pickE={color:COLORS[0],emoji:"👋"},planHides=[];
-var sb,uid=null,me=null,kids=[],blocked=[],dismissed=[],safeT=null,circles=[],plans=[],replies=[],pending=[],sel="all",subscribed=false,toastFor=null,toastKind="New",timer=null;
+var sb,uid=null,me=null,kids=[],blocked=[],dismissed=[],safeT=null,circles=[],plans=[],replies=[],pending=[],copyOf={},copyOK=false,sel="all",subscribed=false,toastFor=null,toastKind="New",timer=null;
 var SW=["#1F8A5F","#E8A400","#3B6FE0","#E4584A","#8A3FC0","#E0457B","#0E8F8F","#F08A24","#6C8FB8"],CD={g:"#1F8A5F",m:"#E8A400",h:"#3B6FE0"};
 var cols=(function(){var c={g:CD.g,m:CD.m,h:CD.h};try{var j=JSON.parse(localStorage.getItem("pr_cols")||"{}");["g","m","h"].forEach(function(k){if(SW.indexOf(j[k])>-1)c[k]=j[k]})}catch(e){}return c})(),cardOpen={};
 var circRoster={},sponsors=[],spPick={top:"",bottom:""},adArea=(function(){try{return localStorage.getItem("pr_adarea")||""}catch(e){return ""}})(),sponsorSeen={},sponsorHidden={top:false,bottom:false},pcs={},nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null,counts={},reminders={},ckw=null,profPriv={};
@@ -278,9 +279,9 @@ async function load(){
   sb.from("profiles_private").select("first_name,last_name").eq("parent_id",uid).maybeSingle(),
   sb.from("plan_circles").select("plan_id,circle_id"),
   sb.from("sponsors").select("id,name,headline,body,link_url,image_url,emoji,target_areas,target_countries"),
-  sb.from("plan_who").select("plan_id,names")]);
+  sb.from("plan_who").select("plan_id,names"),sb.rpc("my_plan_copies")]);
  if(r[2]&&r[2].error&&/description/i.test(r[2].error.message||"")){r[2]=await sb.from("circle_members").select("circle_id,role,status,show_names,circles!circle_id(name,invite_code,ends_on,color,emoji,created_by)").eq("parent_id",uid)}
- var bad=r.find(function(x,i){return x.error&&i!==11&&i!==12&&i!==13&&i!==14});profPriv=(r[11]&&r[11].data)||{};if(bad){toast("Couldn't load: "+bad.error.message)}
+ var bad=r.find(function(x,i){return x.error&&i!==11&&i!==12&&i!==13&&i!==14&&i!==15});profPriv=(r[11]&&r[11].data)||{};copyOK=!!(r[15]&&!r[15].error);copyOf={};((r[15]&&r[15].data)||[]).forEach(function(x){copyOf[x.plan_id]=x.original_id});if(bad){toast("Couldn't load: "+bad.error.message)}
  me=r[0].data;kids=r[1].data||[];circles=r[2].data||[];plans=r[3].data||[];
  var whoMap={};(r[14]&&r[14].data||[]).forEach(function(x){whoMap[x.plan_id]=x.names});plans.forEach(function(p){if(whoMap[p.id])p.who_names=whoMap[p.id]});replies=r[4].data||[];pending=r[5].data||[];
  pcs={};(r[12]&&r[12].data||[]).forEach(function(x){(pcs[x.plan_id]=pcs[x.plan_id]||[]).push(x.circle_id)});
@@ -295,6 +296,7 @@ if(r[13]&&r[13].error){try{r[13]=await sb.from("sponsors").select("id,name,headl
  if(toastFor){var p=plans.find(function(x){return x.id===toastFor});if(p)toast(toastKind+": "+hostName(p)+" · "+p.title+", "+tm(new Date(p.starts_at))+"–"+tm(new Date(p.ends_at)));toastFor=null;toastKind="New"}
  draw();
 }
+function hasMyCopy(pid){return Object.keys(copyOf).some(function(c){return copyOf[c]===pid&&plans.some(function(q){return q.id===c&&!q.cancelled_at})})}
 function approved(){return circles.filter(function(c){return c.status==="approved"&&c.circles&&!(c.circles.ends_on&&daysLeft(c.circles.ends_on)<0)})}
 async function loadContacts(){var pc=await sb.from("parents").select("id,display_name").neq("id",uid).order("display_name");var hh=await sb.from("hidden_from").select("hidden_id");contacts=pc.data||[];hiddenIds=(hh.data||[]).map(function(x){return x.hidden_id})}
 async function loadHideRosters(){
@@ -321,6 +323,7 @@ function hidePicked(){return [].slice.call(document.querySelectorAll("#sheet [da
 function planSheet(){
  var ap=approved();
  setSheet('<h2>Share an activity</h2><label for="pk">Type</label><select id="pk"><option value="dropin">Pop round (no reply needed)</option><option value="party">RSVP</option></select><p class="hint">Pop round: friends turn up if they\'re free, no reply needed. RSVP: friends reply Going or Maybe so you know numbers.</p>'
+ +(copyOK?'<label id="pcopy_l" style="display:flex;align-items:center;gap:10px;font-weight:600;margin:6px 0"><input type="checkbox" id="pcopy" checked style="width:22px;height:22px;flex:none"><span>Let people in my circles copy this</span></label><p class="hint" id="pcopy_h" style="margin-top:0">Pop round only. They can copy it into their own circles and become the organiser of their copy. You are not shown or told. An activity hidden from anyone cannot be copied.</p>':'')
  +whoBoxes()
  +'<label for="pt">What\'s the activity?</label><input id="pt" placeholder="Playground">'
  +'<label for="pw">Where</label><input id="pw" placeholder="Meeting spot or address">'
@@ -472,7 +475,7 @@ function flash(sel,label){var el=document.querySelector("#sheet "+sel);if(!el)re
 function unflash(){[].forEach.call(document.querySelectorAll("#sheet .saved"),function(e){e.textContent=e.dataset.orig||"Save";e.classList.remove("saved");e.disabled=false})}
 function circleNote(ds){if(!ds)return '';var n=daysLeft(ds);if(n<0||n>30)return '';return '<span class="cnote'+(n<=7?' soon':'')+'">'+(n===0?'Ends today':n===1?'Ends tomorrow':'Ends in '+n+' days')+'</span>'}
 function circleRow(sc,now){
- var cnt=function(cid){return plans.filter(function(p){return pcOf(p).indexOf(cid)>-1&&new Date(p.ends_at)>=now&&dismissed.indexOf(p.id)<0}).length};
+ var cnt=function(cid){return plans.filter(function(p){return pcOf(p).indexOf(cid)>-1&&new Date(p.ends_at)>=now&&dismissed.indexOf(p.id)<0&&!hasMyCopy(p.id)}).length};
  return '<nav class="crow" id="crow" aria-label="Your circles">'
   +'<div class="cw"><button class="cb" data-a="sel" data-c="all" aria-label="All circles" aria-pressed="'+(sel==="all")+'"><span class="cbub" style="background:var(--ink);color:var(--bg)"><span class="n" style="font-size:16px">All</span></span></button></div>'
   +sc.map(function(c){var ci=c.circles,n=cnt(c.circle_id),col=ci.color||COLORS[0],nm=cname(c.circle_id,ci.name);return '<div class="cw"><button class="cb" data-a="sel" data-c="'+esc(c.circle_id)+'" aria-label="'+esc(nm)+'" aria-pressed="'+(sel===c.circle_id)+'"><span class="cbub" style="background:'+esc(col)+';color:'+inkOn(col)+'"><span class="e">'+esc(ci.emoji||"\ud83d\udc4b")+'</span><span class="n">'+esc(nm)+'</span></span>'+(n?'<span class="cnt">'+n+'</span>':'')+(stars[c.circle_id]?'<span class="stm">&#9733;</span>':'')+'</button>'+circleNote(ci.ends_on)+'</div>'}).join("")
@@ -533,6 +536,23 @@ function profilePage(msg){
  +'<label for="nk">Add someone</label><div class="req" style="gap:6px"><input id="nk" placeholder="First name" style="flex:1;min-width:0"></div>'
  +'<div class="err" id="pre">'+esc(msg||"")+'</div><button class="big" data-a="saveprofile">Save changes</button>');
 }
+function dupSheet(pid){
+ var p=plans.find(function(x){return x.id===pid});if(!p)return;
+ var s=new Date(p.starts_at),e=new Date(p.ends_at),taken=pcOf(p),mine=sortedCircles().filter(function(c){return taken.indexOf(c.circle_id)<0});
+ if(!mine.length){setSheet('<h2>Duplicate this activity</h2><p class="hint">You are not in any other circle yet, so there is nowhere to copy it to. Create or join another circle first.</p><button class="link" data-a="close">Close</button>');return}
+ setSheet('<h2>Duplicate this activity</h2><p class="hint">You will be the organiser of your copy. The original organiser is not told and is not shown. People who already see the original will not get yours, unless the original is cancelled. The day and time stay the same.</p>'
+ +'<div class="card"><b>'+esc(dayLabel(s))+', '+(p.open_ended?'from '+tm(s):tm(s)+'\u2013'+tm(e))+'</b></div>'
+ +'<label for="dt">What\'s the activity?</label><input id="dt" value="'+esc(p.title)+'">'
+ +'<label for="dw">Where</label><input id="dw" value="'+esc(p.place_name)+'">'
+ +'<label for="dn">Note (optional)</label><textarea id="dn" rows="2" maxlength="140">'+esc((p.note||"").slice(0,140))+'</textarea><div class="cc" id="dn_c">'+Math.min(140,(p.note||"").length)+' / 140</div>'
+ +'<label>Share with</label><p class="hint" style="margin-top:0">Tick the circles that should get your copy.</p><div class="card" style="padding:6px 12px" id="pcs">'+mine.map(function(c){return '<label style="display:flex;align-items:center;gap:10px;margin:6px 0;font-weight:600"><input type="checkbox" style="width:22px;height:22px;flex:none" data-pc="'+esc(c.circle_id)+'"'+(mine.length===1?' checked':'')+'><span>'+esc(cname(c.circle_id,c.circles.name))+'</span></label>'}).join("")+'</div>'
+ +'<div id="dwarn" style="display:none;border:2px solid #E8B923;border-radius:12px;padding:10px 12px;margin:10px 0;font-size:14px"></div>'
+ +'<details style="margin-top:12px"><summary style="font-weight:600;cursor:pointer">Hide from specific people (optional)</summary><p class="hint">They will not see your copy or who replied. They are not told. People you always hide are ticked already.</p><div id="hidelist" class="card" style="padding:6px 12px;margin-top:8px"><p class="hint">Loading...</p></div></details>'
+ +'<div class="err" id="de2"></div><button class="big" data-a="senddup" data-p="'+esc(pid)+'">Send</button><button class="link" data-a="close">Cancel</button>');
+ planHides=[];fillHideList(pickedCircles(),[]);
+ var dw=function(){var w=endWarn(pickedCircles(),isoOf(s));$("dwarn").innerHTML=w;$("dwarn").style.display=w?"":"none"};dw();
+ $("pcs").onchange=function(){fillHideList(pickedCircles(),hidePicked());dw()};
+}
 function editSheet(pid){
  var p=plans.find(function(x){return x.id===pid});if(!p)return;
  var s=new Date(p.starts_at),e=new Date(p.ends_at);
@@ -547,6 +567,7 @@ function editSheet(pid){
  +'<p class="hint" id="eend"></p><div id="cwarn" data-base="'+esc(pcOf(p).join(","))+'" style="display:none;border:2px solid #E8B923;border-radius:12px;padding:10px 12px;margin:10px 0;font-size:14px"></div>'+whoBoxes((p.who_names||(p.child&&p.child.first_name)||"").split(", "))+'<details style="margin-top:12px"><summary style="font-weight:600;cursor:pointer">Hide from specific people (optional)</summary><p class="hint">They will not see this activity or who replied. They are not told.</p><div id="hidelist" class="card" style="padding:6px 12px;margin-top:8px"><p class="hint">Loading...</p></div></details>'
  +(function(){var cur=pcs[p.id]||[p.circle_id],more=sortedCircles().filter(function(c){return cur.indexOf(c.circle_id)<0});
    return more.length?'<details style="margin-top:12px"><summary style="font-weight:600;cursor:pointer">Share with more circles (optional)</summary><p class="hint">People in the circles you add get an alert. You can add circles but not take them away.</p><div class="card" style="padding:6px 12px">'+more.map(function(c){return '<label style="display:flex;align-items:center;gap:10px;margin:6px 0;font-weight:600"><input type="checkbox" style="width:22px;height:22px;flex:none" data-pc="'+esc(c.circle_id)+'"><span>'+esc(cname(c.circle_id,c.circles.name))+'</span></label>'}).join("")+'</div></details>':''})()
+ +((copyOK&&p.kind==="dropin"&&!copyOf[p.id]&&typeof p.allow_copy==="boolean")?'<label style="display:flex;align-items:center;gap:10px;font-weight:600;margin:12px 0 2px"><input type="checkbox" id="ecopy" style="width:22px;height:22px;flex:none"'+(p.allow_copy?' checked':'')+'><span>Let people in my circles copy this</span></label><p class="hint" style="margin-top:0">They become the organiser of their own copy. You are not shown or told. Not possible if the activity is hidden from anyone.</p>':'')
  +'<label for="en">Note (optional)</label><textarea id="en" rows="2" maxlength="140">'+esc((p.note||"").slice(0,140))+'</textarea><div class="cc" id="en_c">'+Math.min(140,(p.note||"").length)+' / 140</div><div class="err" id="ee2"></div>'
  +'<button class="big" data-a="saveplan" data-p="'+esc(pid)+'">Save and notify</button><button class="link" data-a="close">Cancel</button>');
  endHint();fillHideList(pcOf(p),planHides);
@@ -613,7 +634,7 @@ function clashesFor(pid){
  var p=plans.find(function(x){return x.id===pid});if(!p)return[];
  var a0=new Date(p.starts_at),a1=new Date(p.ends_at),now=new Date();
  return plans.filter(function(q){
-  if(q.id===pid||q.cancelled_at||dismissed.indexOf(q.id)>-1)return false;
+  if(q.id===pid||q.cancelled_at||dismissed.indexOf(q.id)>-1||copyOf[pid]===q.id||copyOf[q.id]===pid)return false;
   var b0=new Date(q.starts_at),b1=new Date(q.ends_at);if(b1<now)return false;
   var mine=q.host_id===uid||replies.some(function(r){return r.plan_id===q.id&&r.parent_id===uid&&(r.status==="going"||r.status==="maybe")});
   return mine&&a0<b1&&b0<a1})}
@@ -645,7 +666,7 @@ function draw(){
  var ap=approved(),ids=ap.map(function(c){return c.circle_id}),now=new Date();
   var sc=sortedCircles(),rl=$("crow")?$("crow").scrollLeft:0,hn=plans.filter(function(p){return inSel(p)&&dismissed.indexOf(p.id)>-1}).length;
  var chips='<button class="chip" data-a="sel" data-c="all" aria-pressed="'+(sel==="all")+'">All circles</button>'+ap.map(function(c){return '<button class="chip" data-a="sel" data-c="'+esc(c.circle_id)+'" aria-pressed="'+(sel===c.circle_id)+'">'+esc(cname(c.circle_id,c.circles.name))+'</button>'}).join("");
- var list=plans.filter(function(p){return inSel(p)&&dismissed.indexOf(p.id)<0&&(!p.cancelled_at||p.host_id===uid||replies.some(function(r){return r.plan_id===p.id&&r.parent_id===uid&&(r.status==="going"||r.status==="maybe")}))});
+ var list=plans.filter(function(p){return inSel(p)&&dismissed.indexOf(p.id)<0&&!hasMyCopy(p.id)&&(!p.cancelled_at||p.host_id===uid||replies.some(function(r){return r.plan_id===p.id&&r.parent_id===uid&&(r.status==="going"||r.status==="maybe")}))});
  var cardArr=list.map(function(p){
   var party=p.kind==="party",s=new Date(p.starts_at),e=new Date(p.ends_at);
   var rs=replies.filter(function(r){return r.plan_id===p.id}),myR=(rs.find(function(r){return r.parent_id===uid})||{}).status;
@@ -660,7 +681,7 @@ function draw(){
   var pills=pcOf(p).map(function(c){var m=circles.find(function(x){return x.circle_id===c})||{circles:{}},ci=m.circles,col=ci.color||COLORS[0];return '<span class="cpill" style="background:'+esc(col)+';color:'+inkOn(col)+'">'+esc(ci.emoji||"👋")+' '+esc(cname(c,ci.name))+'</span>'}).join("");
   var statBtn=function(st,lbl,n){return n?'<button class="stat" data-a="whosheet" data-s="'+st+'" data-p="'+esc(p.id)+'">'+lbl+': '+n+'</button>':''};
   var stats=(ng||nm)?'<div class="stats">'+statBtn("going","Going",ng)+statBtn("maybe","Maybe",nm)+'</div>':'<div class="where" style="margin-top:10px">No replies yet</div>';
-  var btns=host?(canc?'<div>'+(ended?'':'<button class="b sm" data-a="undocancel" data-p="'+esc(p.id)+'">Undo</button> ')+'<button class="b sm del" data-a="delplan" data-p="'+esc(p.id)+'">Delete</button></div>':'<div><button class="b sm" data-a="editplan" data-p="'+esc(p.id)+'">Edit</button> <button class="b sm del" data-a="delplan" data-p="'+esc(p.id)+'">Delete</button></div>'):'';
+  var btns=host?(canc?'<div>'+(ended?'':'<button class="b sm" data-a="undocancel" data-p="'+esc(p.id)+'">Undo</button> ')+'<button class="b sm del" data-a="delplan" data-p="'+esc(p.id)+'">Delete</button></div>':'<div><button class="b sm" data-a="editplan" data-p="'+esc(p.id)+'">Edit</button> <button class="b sm del" data-a="delplan" data-p="'+esc(p.id)+'">Delete</button></div>'):((copyOK&&p.kind==="dropin"&&p.allow_copy===true&&!canc&&!ended&&!copyOf[p.id])?'<div><button class="b sm" data-a="dupplan" data-p="'+esc(p.id)+'">Duplicate</button></div>':'');
   var stt=canc?null:(host?"mine":(myR==="going"||myR==="maybe"?myR:null)),stc=stt?(stt==="going"?cols.g:stt==="maybe"?cols.m:cols.h):"";
   var open=cardOpen.hasOwnProperty(p.id)?cardOpen[p.id]:((!host&&!myR&&!ended&&!canc)||hand);
   var clash=(stt==="going"||stt==="maybe")&&!ended?clashesFor(p.id):[];
@@ -724,6 +745,12 @@ async function act(b){
   await load();await loadRoster(b.dataset.c);circleSheet(b.dataset.c,"Look saved. Everyone in the circle sees it.");flash('[data-a="savestyle"]')}
  else if(a==="savedesc"){if(rudeCheck(["cdesc"],"ce3"))return;var sdq=await sb.rpc("set_circle_description",{p_circle:b.dataset.c,p_text:v("cdesc")});if(sdq.error){E("ce3",sdq.error.message);return}
   await load();await loadRoster(b.dataset.c);circleSheet(b.dataset.c,"Description saved.");flash('[data-a="savedesc"]')}
+ else if(a==="dupplan"){dupSheet(b.dataset.p)}
+ else if(a==="senddup"){var dp=plans.find(function(x){return x.id===b.dataset.p});if(!dp)return;var dt=v("dt");if(!dt){E("de2","Add what the activity is.");return}
+  if(rudeCheck(["dt","dw","dn"],"de2"))return;var dc=pickedCircles();if(!dc.length){E("de2","Tick at least one circle to share with.");return}
+  var di=await sb.rpc("create_plan_multi",{p_circles:dc,p_child:null,p_who:null,p_kind:"dropin",p_title:dt,p_place:v("dw")||"Location to be shared",p_starts:dp.starts_at,p_ends:dp.ends_at,p_open:!!dp.open_ended,p_note:v("dn")||null,p_hide:hidePicked(),p_copy_of:dp.id});
+  if(di.error){E("de2",di.error.message);return}
+  setSheet("");toast(dc.length>1?"Copied. Your circles have been notified.":"Copied. Your circle has been notified.");await load()}
  else if(a==="sel"){sel=b.dataset.c;draw()}
  else if(a==="circles"){joinInfo=null;draw();circlesSheet()}
  else if(a==="findcircle"){joinInfo=null;findSheet()}
@@ -844,7 +871,9 @@ async function act(b){
   var bt=buildTimes(dd,v("pf"),v("pe"));if(bt.err){E("pe2",bt.err);return}
   var s=bt.s,e=bt.e;
   var pcl=pickedCircles();if(!pcl.length){E("pe2","Tick at least one circle to share with.");return}
-  var ins=await sb.rpc("create_plan_multi",{p_circles:pcl,p_child:wp.childId,p_who:wp.names,p_kind:v("pk"),p_title:t,p_place:v("pw")||"Location to be shared",p_starts:s.toISOString(),p_ends:e.toISOString(),p_open:bt.open,p_note:v("pn")||null,p_hide:hidePicked()});
+  var cpa={p_circles:pcl,p_child:wp.childId,p_who:wp.names,p_kind:v("pk"),p_title:t,p_place:v("pw")||"Location to be shared",p_starts:s.toISOString(),p_ends:e.toISOString(),p_open:bt.open,p_note:v("pn")||null,p_hide:hidePicked()};
+  if(copyOK&&$("pcopy"))cpa.p_allow_copy=v("pk")==="dropin"&&$("pcopy").checked&&!cpa.p_hide.length;
+  var ins=await sb.rpc("create_plan_multi",cpa);
   if(ins.error)throw ins.error;setSheet("");toast(pcl.length>1?"Sent. Your circles have been notified.":"Sent. Your circle has been notified.");await load()}
  else if(a==="togglecard"){var tp=b.dataset.p,tcur=cardOpen.hasOwnProperty(tp)?cardOpen[tp]:null;if(tcur===null){var tb=b.closest("article");tcur=!!tb&&!!tb.querySelector(".cfoot")}cardOpen[tp]=!tcur;draw()}
  else if(a==="setcol"){if(b.dataset.k==="reset"){cols={g:CD.g,m:CD.m,h:CD.h}}else cols[b.dataset.k]=b.dataset.v;try{localStorage.setItem("pr_cols",JSON.stringify(cols))}catch(e){}draw();profOpen.col=true;profileSheet()}
@@ -882,7 +911,9 @@ async function act(b){
   var bt2=buildTimes(d2,v("ef"),v("ee"));if(bt2.err){E("ee2",bt2.err);return}
   var s2=bt2.s,e2=bt2.e;
   var sh=await sb.rpc("set_plan_hidden",{p_plan:b.dataset.p,p_hide:hidePicked()});if(sh.error)throw sh.error;
-  var up=await sb.from("plans").update({title:et,place_name:v("ew")||"Location to be shared",starts_at:s2.toISOString(),ends_at:e2.toISOString(),open_ended:bt2.open,note:v("en")||null,who_names:wq.names,child_id:wq.childId}).eq("id",b.dataset.p);
+  var upd={title:et,place_name:v("ew")||"Location to be shared",starts_at:s2.toISOString(),ends_at:e2.toISOString(),open_ended:bt2.open,note:v("en")||null,who_names:wq.names,child_id:wq.childId};
+  if($("ecopy"))upd.allow_copy=$("ecopy").checked&&!hidePicked().length;
+  var up=await sb.from("plans").update(upd).eq("id",b.dataset.p);
   if(up.error)throw up.error;
   var addc=pickedCircles();if(addc.length){var ac=await sb.rpc("add_plan_circles",{p_plan:b.dataset.p,p_circles:addc});if(ac.error)throw ac.error}
   setSheet("");toast(addc.length?"Saved. Your circles have been notified.":"Saved. Your circle has been notified.");await load()}

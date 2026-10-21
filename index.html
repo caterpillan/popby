@@ -174,7 +174,7 @@ function placeHtml(p){if(p.place_url&&mapOk(p.place_url)){var n=p.place_name&&p.
 function locChip(pre,url){return url?'<div class="locchip"><span>\ud83d\udccd Map link added</span> <a data-a="maplink" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">Check it</a> <button type="button" class="link" data-a="locclear" data-t="'+pre+'">Remove</button></div>':''}
 function locBox(pre,name,url,ph){var inp='<label for="'+pre+'w">Where</label><input id="'+pre+'w" value="'+esc(name||"")+'"'+(ph?' placeholder="'+esc(ph)+'"':'')+'>';if(!placeOK)return inp;
  return inp+'<input type="hidden" id="'+pre+'u" value="'+esc(url&&mapOk(url)?url:"")+'"><div id="'+pre+'chip">'+locChip(pre,url&&mapOk(url)?url:"")+'</div>'
- +'<div class="locbtns"><button type="button" class="b sm" data-a="locmap" data-t="'+pre+'">\ud83d\udccd Choose on a map</button><button type="button" class="b sm" data-a="locgps" data-t="'+pre+'">Use my location</button></div>'
+ +'<div class="locbtns"><button type="button" class="b sm" data-a="locmap" data-t="'+pre+'">\ud83d\udccd Choose on a map</button></div>'
  +'<div id="'+pre+'panel" style="display:none"></div><p class="hint" style="margin:6px 0 0">You can still just type the place. Anyone who sees the activity can open a map link.</p>'}
 function rudeCheck(ids,errId){for(var i=0;i<ids.length;i++){var el=$(ids[i]);if(el&&hasLink(el.value)){var le=$(errId);if(le)le.textContent="Please leave web links out. To share a place, use the map button.";return true}if(el&&rudeWord(el.value)){var ee=$(errId);if(ee)ee.textContent="Please reword that. PopRound keeps names and activities family-friendly.";return true}}return false}
 var APP_VERSION="1.0 (Oct 2026)";

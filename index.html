@@ -89,6 +89,21 @@ input,select,textarea{width:100%;font:inherit;padding:12px;border-radius:12px;bo
 .cbub .e{font-size:24px;line-height:1.05}
 .cbub .n{font-size:11px;font-weight:800;line-height:1.1;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
 .cb.add .cbub{background:none;border:2px dashed var(--mute);color:var(--mute)}
+.locbtns{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 0}
+.locchip{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--leafbg);border-radius:10px;padding:8px 10px;margin-top:8px;font-size:14px;font-weight:600}
+.locchip a{color:var(--ink)}.locchip .link{padding:0;font-size:14px;display:inline;width:auto;margin:0}
+a.maplink{color:inherit;font-weight:600;text-decoration:underline;text-underline-offset:2px}
+.setl{font-weight:800;font-size:15px;margin:4px 0 4px}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);border:2px solid var(--ink);border-radius:12px;overflow:hidden}
+.seg button{border:0;background:transparent;color:var(--ink);padding:11px 4px;font:inherit;font-weight:700;font-size:15px;cursor:pointer}
+.seg button+button{border-left:2px solid var(--ink)}
+.seg button.on{background:var(--ink);color:var(--card)}
+.colrow{border:1px solid var(--line);border-radius:14px;padding:10px;margin:0 0 10px;background:var(--card)}
+.colprev{display:flex;align-items:center;gap:10px;border-left:6px solid var(--st);padding:2px 0 2px 10px;margin-bottom:10px}
+.colprev .spill{flex:none}
+.sws{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:5px}
+.sw{aspect-ratio:1;width:100%;min-width:0;box-sizing:border-box;border-radius:50%;border:3px solid transparent;color:#fff;font-size:14px;font-weight:800;cursor:pointer;padding:0}
+.sw.on{border-color:var(--ink)}
 .acc{border-top:1px solid var(--line)}
 .acch{width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;background:none;border:0;font:inherit;font-size:18px;font-weight:800;color:var(--ink);padding:14px 2px;cursor:pointer;text-align:left}
 .acch .chev{flex:none;transition:transform .15s;color:var(--mute)}
@@ -152,7 +167,16 @@ function parseDate(t){t=(t||"").toLowerCase().replace(/,/g," ").replace(/(\d)(st
  return dt.getFullYear()+"-"+pad(dt.getMonth()+1)+"-"+pad(dt.getDate())}
 var RUDE=["arse","arsehole","arseholes","asshole","assholes","bastard","bastards","bellend","bitch","bitches","bitching","bitchy","blowjob","bollocks","boob","boobies","boobs","bullshit","cameltoe","chink","cocksucker","coon","cunt","cunts","dick","dickface","dickhead","dicks","dildo","dyke","faggot","faggots","fuck","fucked","fucker","fuckers","fuckface","fuckhead","fuckin","fucking","fucks","fuckwit","gook","handjob","jizz","kike","motherfucker","motherfuckers","nigga","nigger","niggers","paki","piss","pissed","porn","prick","pricks","pussy","retard","retards","shit","shite","shitface","shithead","shits","shitty","skank","slag","slut","sluts","spastic","spic","tit","tits","titties","titty","tosser","tranny","twat","twats","wank","wanker","wankers","whore","whores"];
 function rudeWord(t){var w=(t||"").toLowerCase().replace(/[013457@$]/g,function(c){return {"0":"o","1":"i","3":"e","4":"a","5":"s","7":"t","@":"a","$":"s"}[c]||c}).replace(/[^a-z]+/g," ").split(" ").filter(Boolean),run="";for(var i=0;i<=w.length;i++){var x=w[i];if(x&&x.length===1)run+=x;else{if(run.length>1&&RUDE.indexOf(run)>-1)return true;run="";if(x&&RUDE.indexOf(x)>-1)return true}}return false}
-function rudeCheck(ids,errId){for(var i=0;i<ids.length;i++){var el=$(ids[i]);if(el&&rudeWord(el.value)){var ee=$(errId);if(ee)ee.textContent="Please reword that. PopRound keeps names and activities family-friendly.";return true}}return false}
+function hasLink(t){return /(https?:|ftp:|:\/\/|www\.|[a-z0-9-]\.(com|net|org|uk|io|app|link|ly|gl|gd|info|biz|xyz|shop|site|online|club|top|live|tv|ru|cn|me|co|gg|cc|ws|click|page|dev|tk|ml|ga|cf)([^a-z]|$)|[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)/i.test(t||"")}
+function mapOk(u){return typeof u==="string"&&u.length<=500&&/^https:\/\/(www\.google\.com\/maps|maps\.google\.com|google\.com\/maps|maps\.app\.goo\.gl|goo\.gl\/maps|maps\.apple\.com|maps\.apple|www\.openstreetmap\.org|openstreetmap\.org|what3words\.com|w3w\.co)([\/?#][^\s<>"']*)?$/i.test(u)}
+function mapName(u){var m=/\/maps\/place\/([^\/@?]+)/.exec(u||"");if(!m)return "";try{return decodeURIComponent(m[1].replace(/\+/g," ")).slice(0,80)}catch(e){return ""}}
+function placeHtml(p){if(p.place_url&&mapOk(p.place_url)){var n=p.place_name&&p.place_name!=="Location to be shared"?p.place_name:"Open in maps";return '<a class="maplink" data-a="maplink" href="'+esc(p.place_url)+'" target="_blank" rel="noopener noreferrer">\ud83d\udccd '+esc(n)+'</a>'}return esc(p.place_name)}
+function locChip(pre,url){return url?'<div class="locchip"><span>\ud83d\udccd Map link added</span> <a data-a="maplink" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">Check it</a> <button type="button" class="link" data-a="locclear" data-t="'+pre+'">Remove</button></div>':''}
+function locBox(pre,name,url,ph){var inp='<label for="'+pre+'w">Where</label><input id="'+pre+'w" value="'+esc(name||"")+'"'+(ph?' placeholder="'+esc(ph)+'"':'')+'>';if(!placeOK)return inp;
+ return inp+'<input type="hidden" id="'+pre+'u" value="'+esc(url&&mapOk(url)?url:"")+'"><div id="'+pre+'chip">'+locChip(pre,url&&mapOk(url)?url:"")+'</div>'
+ +'<div class="locbtns"><button type="button" class="b sm" data-a="locmap" data-t="'+pre+'">\ud83d\udccd Choose on a map</button><button type="button" class="b sm" data-a="locgps" data-t="'+pre+'">Use my location</button></div>'
+ +'<div id="'+pre+'panel" style="display:none"></div><p class="hint" style="margin:6px 0 0">You can still just type the place. Anyone who sees the activity can open a map link.</p>'}
+function rudeCheck(ids,errId){for(var i=0;i<ids.length;i++){var el=$(ids[i]);if(el&&hasLink(el.value)){var le=$(errId);if(le)le.textContent="Please leave web links out. To share a place, use the map button.";return true}if(el&&rudeWord(el.value)){var ee=$(errId);if(ee)ee.textContent="Please reword that. PopRound keeps names and activities family-friendly.";return true}}return false}
 var APP_VERSION="1.0 (Oct 2026)";
 function adEmailOk(){return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(window.POPROUND_ADS_EMAIL||"").trim())}
 function aboutBox(){var em=String(window.POPROUND_SUPPORT_EMAIL||"").trim(),ok=/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em),l=function(h,t){return '<a class="legal" href="'+h+'" target="_blank" rel="noopener">'+t+' <span aria-hidden="true">&#8250;</span></a>'};
@@ -201,7 +225,7 @@ function dayLabel(d){return d.toDateString()===new Date().toDateString()?"Today"
 
 var COLORS=["#4361EE","#E4584A","#2EC4B6","#FFC83D","#7B2CBF","#FF8FAB","#1F8A5F","#F77F00"],EMOJIS=["⚽","🏀","🎂","🎈","🏫","🎒","🌳","🛝","🏠","🎨","🎵","🐶","🚲","🏊","🍕","🌈","⭐","🧸","🍎","🐢","👋","🌻","🚀","🎮"];
 var stars={},pickN={color:COLORS[0],emoji:"👋"},pickE={color:COLORS[0],emoji:"👋"},planHides=[];
-var sb,uid=null,me=null,kids=[],blocked=[],dismissed=[],safeT=null,circles=[],plans=[],replies=[],pending=[],copyOf={},copyOK=false,replyWho={},extraN={},whoOK=false,headN={},sel="all",subscribed=false,toastFor=null,toastKind="New",timer=null;
+var sb,uid=null,me=null,kids=[],blocked=[],dismissed=[],safeT=null,circles=[],plans=[],replies=[],pending=[],copyOf={},copyOK=false,replyWho={},extraN={},whoOK=false,headN={},placeOK=false,sel="all",subscribed=false,toastFor=null,toastKind="New",timer=null;
 var SW=["#1F8A5F","#E8A400","#3B6FE0","#E4584A","#8A3FC0","#E0457B","#0E8F8F","#F08A24","#6C8FB8"],CD={g:"#1F8A5F",m:"#E8A400",h:"#3B6FE0"};
 var cols=(function(){var c={g:CD.g,m:CD.m,h:CD.h};try{var j=JSON.parse(localStorage.getItem("pr_cols")||"{}");["g","m","h"].forEach(function(k){if(SW.indexOf(j[k])>-1)c[k]=j[k]})}catch(e){}return c})(),cardOpen={};
 var circRoster={},sponsors=[],spPick={top:"",bottom:""},adArea=(function(){try{return localStorage.getItem("pr_adarea")||""}catch(e){return ""}})(),sponsorSeen={},sponsorHidden={top:false,bottom:false},pcs={},nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null,counts={},reminders={},ckw=null,profPriv={};
@@ -279,9 +303,9 @@ async function load(){
   sb.from("profiles_private").select("first_name,last_name").eq("parent_id",uid).maybeSingle(),
   sb.from("plan_circles").select("plan_id,circle_id"),
   sb.from("sponsors").select("id,name,headline,body,link_url,image_url,emoji,target_areas,target_countries"),
-  sb.from("plan_who").select("plan_id,names"),sb.rpc("my_plan_copies"),sb.from("plan_reply_who").select("plan_id,parent_id,names,head"),sb.rpc("reply_extra"),sb.rpc("reply_heads")]);
+  sb.from("plan_who").select("plan_id,names"),sb.rpc("my_plan_copies"),sb.from("plan_reply_who").select("plan_id,parent_id,names,head"),sb.rpc("reply_extra"),sb.rpc("reply_heads"),sb.from("plans").select("place_url").limit(1)]);
  if(r[2]&&r[2].error&&/description/i.test(r[2].error.message||"")){r[2]=await sb.from("circle_members").select("circle_id,role,status,show_names,circles!circle_id(name,invite_code,ends_on,color,emoji,created_by)").eq("parent_id",uid)}
- var bad=r.find(function(x,i){return x.error&&i!==11&&i!==12&&i!==13&&i!==14&&i!==15&&i!==16&&i!==17&&i!==18});profPriv=(r[11]&&r[11].data)||{};whoOK=!!(r[16]&&!r[16].error&&r[17]&&!r[17].error);replyWho={};extraN={};headN={};((r[18]&&!r[18].error&&r[18].data)||[]).forEach(function(x){headN[x.plan_id+"|"+x.parent_id]=x.head});if(whoOK){(r[16].data||[]).forEach(function(x){replyWho[x.plan_id+"|"+x.parent_id]=x});(r[17].data||[]).forEach(function(x){(extraN[x.plan_id]=extraN[x.plan_id]||{})[x.status]=x.n})}copyOK=!!(r[15]&&!r[15].error);copyOf={};((r[15]&&r[15].data)||[]).forEach(function(x){copyOf[x.plan_id]=x.original_id});if(bad){toast("Couldn't load: "+bad.error.message)}
+ var bad=r.find(function(x,i){return x.error&&i!==11&&i!==12&&i!==13&&i!==14&&i!==15&&i!==16&&i!==17&&i!==18&&i!==19});profPriv=(r[11]&&r[11].data)||{};whoOK=!!(r[16]&&!r[16].error&&r[17]&&!r[17].error);placeOK=!!(r[19]&&!r[19].error);replyWho={};extraN={};headN={};((r[18]&&!r[18].error&&r[18].data)||[]).forEach(function(x){headN[x.plan_id+"|"+x.parent_id]=x.head});if(whoOK){(r[16].data||[]).forEach(function(x){replyWho[x.plan_id+"|"+x.parent_id]=x});(r[17].data||[]).forEach(function(x){(extraN[x.plan_id]=extraN[x.plan_id]||{})[x.status]=x.n})}copyOK=!!(r[15]&&!r[15].error);copyOf={};((r[15]&&r[15].data)||[]).forEach(function(x){copyOf[x.plan_id]=x.original_id});if(bad){toast("Couldn't load: "+bad.error.message)}
  me=r[0].data;kids=r[1].data||[];circles=r[2].data||[];plans=r[3].data||[];
  var whoMap={};(r[14]&&r[14].data||[]).forEach(function(x){whoMap[x.plan_id]=x.names});plans.forEach(function(p){if(whoMap[p.id])p.who_names=whoMap[p.id]});replies=r[4].data||[];pending=r[5].data||[];
  pcs={};(r[12]&&r[12].data||[]).forEach(function(x){(pcs[x.plan_id]=pcs[x.plan_id]||[]).push(x.circle_id)});
@@ -328,7 +352,7 @@ function planSheet(){
  +(copyOK?'<label id="pcopy_l" style="display:flex;align-items:center;gap:10px;font-weight:600;margin:6px 0"><input type="checkbox" id="pcopy" checked style="width:22px;height:22px;flex:none"><span>Let people in my circles copy this</span></label><p class="hint" id="pcopy_h" style="margin-top:0">Pop round only. They can copy it into their own circles and become the organiser of their copy. You are not shown or told. An activity hidden from anyone cannot be copied.</p>':'')
  +whoBoxes()
  +'<label for="pt">What\'s the activity?</label><input id="pt" placeholder="Playground">'
- +'<label for="pw">Where</label><input id="pw" placeholder="Meeting spot or address">'
+ +locBox("p","","","Meeting spot or address")
  +'<div class="two"><div><label>From (24 hour)</label>'+timeSel("pf",qtr(new Date()),false)+'</div><div><label>Until (optional)</label>'+timeSel("pe","",true)+'</div></div>'
  +'<label for="pd">Day</label><input id="pd" type="text" inputmode="text" autocomplete="off" placeholder="e.g. 12 Oct, 12/10 or tomorrow" value="'+fmtDate(todayStr())+'"><button type="button" class="b sm" data-a="cal" data-t="pd" style="margin-top:6px">Calendar</button><input type="date" id="pd_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none"><div style="display:flex;gap:6px;margin:8px 0"><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="0" data-keep="1">Today</button><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="1" data-keep="1">Tomorrow</button><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="2" data-keep="1">In 2 days</button></div>'
  +'<p class="hint" id="pend"></p><label>Share with</label><p class="hint" style="margin-top:0">Tick one or more circles. Only people in those circles will see it, and they get an alert. Someone in several of them sees it once.</p><div class="card" style="padding:6px 12px" id="pcs">'+sortedCircles().map(function(c,i){var on=sel!=="all"?c.circle_id===sel:i===0;return '<label style="display:flex;align-items:center;gap:10px;margin:6px 0;font-weight:600"><input type="checkbox" style="width:22px;height:22px;flex:none" data-pc="'+esc(c.circle_id)+'"'+(on?' checked':'')+'><span>'+esc(cname(c.circle_id,c.circles.name))+'</span></label>'}).join("")+'</div>'
@@ -519,7 +543,11 @@ function profileSheet(msg){if(Object.keys(profOpen).some(function(q){return prof
  var strip=function(h){return h.replace(/^<h2[^>]*>.*?<\/h2>/,"")};
  setSheet(backBtn("close")+'<h2>Settings</h2>'+(msg?'<p class="hint">'+esc(msg)+'</p>':'')
  +'<div class="acc"><button class="acch" data-a="profilepage"><span>Profile</span><span class="chev" aria-hidden="true">&#8250;</span></button></div>'
- +acc("col","Appearance",'<b>Theme</b><div style="display:flex;gap:8px;margin:6px 0 14px">'+[["auto","Auto"],["light","Light"],["dark","Dark"]].map(function(t){return '<button class="b sm'+(curTheme()===t[0]?' on':'')+'" data-a="settheme" data-v="'+t[0]+'">'+t[1]+'</button>'}).join("")+'<p class="hint" style="margin-top:0">Auto follows your phone\'s setting.</p><b>Card colours</b>'+'<p class="hint">Choose the colour for each kind of activity. It applies to all your cards, on this phone.</p>'+[["g","Going"],["m","Maybe"],["h","Activities I organise"]].map(function(r){return '<div style="margin:10px 0"><b>'+r[1]+'</b><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">'+SW.map(function(c){var on=cols[r[0]]===c;return '<button data-a="setcol" data-k="'+r[0]+'" data-v="'+c+'" aria-label="'+r[1]+' colour" aria-pressed="'+on+'" style="width:38px;height:38px;border-radius:50%;background:'+c+';border:3px solid '+(on?'var(--ink)':'transparent')+';color:#fff;font-size:18px;font-weight:800;cursor:pointer">'+(on?'\u2713':'')+'</button>'}).join("")+'</div></div>'}).join("")+'<button class="b sm" data-a="setcol" data-k="reset">Reset to default</button>')
+ +acc("col","Appearance",
+ '<div class="setl">Theme</div><div class="seg">'+[["auto","Auto"],["light","Light"],["dark","Dark"]].map(function(t){return '<button data-a="settheme" data-v="'+t[0]+'" aria-pressed="'+(curTheme()===t[0])+'" class="'+(curTheme()===t[0]?'on':'')+'">'+t[1]+'</button>'}).join("")+'</div><p class="hint" style="margin:6px 0 0">Auto follows your phone\'s setting.</p>'
+ +'<div class="setl" style="margin-top:20px">Card colours</div><p class="hint" style="margin:0 0 8px">Pick a colour for each kind of activity. This is only on this phone.</p>'
+ +[["g","Going","Activities you said you are going to","\u2713 Going"],["m","Maybe","Activities you might pop by","Maybe"],["h","Yours","Activities you organise","Yours"]].map(function(r){return '<div class="colrow"><div class="colprev" style="--st:'+cols[r[0]]+'"><span class="spill">'+r[3]+'</span><div><b>'+r[1]+'</b><div class="where">'+r[2]+'</div></div></div><div class="sws">'+SW.map(function(c){var on=cols[r[0]]===c;return '<button data-a="setcol" data-k="'+r[0]+'" data-v="'+c+'" aria-label="'+r[1]+' colour" aria-pressed="'+on+'" class="sw'+(on?' on':'')+'" style="background:'+c+'">'+(on?'\u2713':'')+'</button>'}).join("")+'</div></div>'}).join("")
+ +'<button class="b sm" data-a="setcol" data-k="reset" style="margin-top:4px">Reset colours</button>')
  +acc("push","Notifications",'<div id="pushbox"><p class="hint">Checking...</p></div>')
  +acc("priv","Privacy & safety",(typeof me.name_public==="boolean"?acc("nm","Who can see my name",'<p class="hint"><b>Off (recommended):</b> your name and the first names of the family members you bring along are shown only to people in circles you organise. The organiser of any circle you are in can always see them. Everyone else sees "A member". Totals such as "3 going" still count you.</p><p class="hint"><b>On:</b> everyone in your circles can see them.</p><button class="b sm'+(me.name_public?' on':'')+'" data-a="togglepublic">Show my name to everyone: '+(me.name_public?'On':'Off')+'</button>'):"")+acc("hide","Hide my activities from",strip(hideList))+acc("dis","Hidden activities"+(dis.length?" ("+dis.length+")":""),strip(disList))+acc("blk","Blocked (safety)"+(blocked.length?" ("+blocked.length+")":""),strip(blk)))
  +acc("legal","About & legal",aboutBox())
@@ -545,7 +573,7 @@ function dupSheet(pid){
  setSheet('<h2>Duplicate this activity</h2><p class="hint">You will be the organiser of your copy. The original organiser is not told and is not shown. People who already see the original will not get yours, unless the original is cancelled. The day and time stay the same.</p>'
  +'<div class="card"><b>'+esc(dayLabel(s))+', '+(p.open_ended?'from '+tm(s):tm(s)+'\u2013'+tm(e))+'</b></div>'
  +'<label for="dt">What\'s the activity?</label><input id="dt" value="'+esc(p.title)+'">'
- +'<label for="dw">Where</label><input id="dw" value="'+esc(p.place_name)+'">'
+ +locBox("d",p.place_name,p.place_url,"")
  +'<label for="dn">Note (optional)</label><textarea id="dn" rows="2" maxlength="140">'+esc((p.note||"").slice(0,140))+'</textarea><div class="cc" id="dn_c">'+Math.min(140,(p.note||"").length)+' / 140</div>'
  +'<label>Share with</label><p class="hint" style="margin-top:0">Tick the circles that should get your copy.</p><div class="card" style="padding:6px 12px" id="pcs">'+mine.map(function(c){return '<label style="display:flex;align-items:center;gap:10px;margin:6px 0;font-weight:600"><input type="checkbox" style="width:22px;height:22px;flex:none" data-pc="'+esc(c.circle_id)+'"'+(mine.length===1?' checked':'')+'><span>'+esc(cname(c.circle_id,c.circles.name))+'</span></label>'}).join("")+'</div>'
  +'<div id="dwarn" style="display:none;border:2px solid #E8B923;border-radius:12px;padding:10px 12px;margin:10px 0;font-size:14px"></div>'
@@ -562,7 +590,7 @@ function editSheet(pid){
  var iso=s.getFullYear()+"-"+pad(s.getMonth()+1)+"-"+pad(s.getDate());
  setSheet('<h2>Edit activity</h2><p class="hint">Everyone in the circle sees an Updated badge and gets a notice.</p>'
  +'<label for="et">What\'s the activity?</label><input id="et" value="'+esc(p.title)+'">'
- +'<label for="ew">Where</label><input id="ew" value="'+esc(p.place_name)+'">'
+ +locBox("e",p.place_name,p.place_url,"")
  +'<div class="two"><div><label>From (24 hour)</label>'+timeSel("ef",pad(s.getHours())+":"+pad(s.getMinutes()),false)+'</div><div><label>Until (optional)</label>'+timeSel("ee",p.open_ended?"":pad(e.getHours())+":"+pad(e.getMinutes()),true)+'</div></div>'
  +'<label for="ed2">Day</label><input id="ed2" type="text" autocomplete="off" placeholder="e.g. 12 Oct, 12/10 or tomorrow" value="'+fmtDate(iso)+'">'
  +'<button type="button" class="b sm" data-a="cal" data-t="ed2" style="margin-top:6px">Calendar</button><input type="date" id="ed2_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none">'
@@ -697,7 +725,7 @@ function draw(){
   var open=cardOpen.hasOwnProperty(p.id)?cardOpen[p.id]:((!host&&!myR&&!ended&&!canc)||hand);
   var clash=(stt==="going"||stt==="maybe")&&!ended?clashesFor(p.id):[];
   var spill=stt?'<span class="spill">'+(stt==="going"?"\u2713 Going":stt==="maybe"?"Maybe":"Yours")+'</span>'+(clash.length?'<span class="spill" style="--st:#B3261E">\u26A0 Clash</span>':''):'';
-  var head='<article class="card '+(stt?"st ":"")+(party?"party":isNow?"now":"")+(hand?" canc":"")+(ended||(canc&&!hand)?" old":"")+'"'+(stt?' style="--st:'+stc+'"':'')+'><div class="cgrid" data-a="togglecard" data-p="'+esc(p.id)+'"><div class="cl"><div class="title">'+esc(p.title)+'</div><div class="where">'+esc(p.place_name)+'</div>'
+  var head='<article class="card '+(stt?"st ":"")+(party?"party":isNow?"now":"")+(hand?" canc":"")+(ended||(canc&&!hand)?" old":"")+'"'+(stt?' style="--st:'+stc+'"':'')+'><div class="cgrid" data-a="togglecard" data-p="'+esc(p.id)+'"><div class="cl"><div class="title">'+esc(p.title)+'</div><div class="where">'+placeHtml(p)+'</div>'
   +'<div class="when">'+esc(dayLabel(s))+', '+(p.open_ended?'from '+tm(s):tm(s)+'–'+tm(e)+(e.toDateString()!==s.toDateString()?' ('+esc(e.toLocaleDateString(undefined,{weekday:"short"}))+')':''))+((p.who_names||(p.child&&p.child.first_name))?' · '+esc(p.who_names||p.child.first_name):'')+'</div>'+(open&&p.note?'<p class="note">'+esc(p.note)+'</p>':'')+(open?stats:'')+'</div>'
   +'<div class="cr"><button class="cchev" data-a="togglecard" data-p="'+esc(p.id)+'" aria-expanded="'+open+'" aria-label="'+(open?"Show less":"Show more")+'">'+(open?"\u25B4":"\u25BE")+'</button>'+(open||canc?'<span class="tag '+(party?"p":"")+(canc?" x":"")+'">'+(canc?(hand?"Organiser cancelled":"Cancelled"):ended?"Ended":party?"RSVP":isNow?"Happening now":"Pop round")+'</span>':'')+(open?'<div class="cpills col">'+pills+'</div>':spill)+'</div></div>';
   var tail=''
@@ -756,10 +784,22 @@ async function act(b){
   await load();await loadRoster(b.dataset.c);circleSheet(b.dataset.c,"Look saved. Everyone in the circle sees it.");flash('[data-a="savestyle"]')}
  else if(a==="savedesc"){if(rudeCheck(["cdesc"],"ce3"))return;var sdq=await sb.rpc("set_circle_description",{p_circle:b.dataset.c,p_text:v("cdesc")});if(sdq.error){E("ce3",sdq.error.message);return}
   await load();await loadRoster(b.dataset.c);circleSheet(b.dataset.c,"Description saved.");flash('[data-a="savedesc"]')}
+ else if(a==="maplink"){return}
+ else if(a==="locclear"){var lt=b.dataset.t;if($(lt+"u"))$(lt+"u").value="";if($(lt+"chip"))$(lt+"chip").innerHTML=""}
+ else if(a==="locmap"){var mt=b.dataset.t,mp=$(mt+"panel");if(!mp)return;if(mp.style.display!=="none"){mp.style.display="none";return}
+  mp.innerHTML='<div class="card" style="margin-top:8px"><b>Pick a place on a map</b><ol class="hint" style="padding-left:18px;margin:6px 0"><li>Open your maps app: <a href="https://www.google.com/maps" target="_blank" rel="noopener noreferrer" data-a="maplink">Google Maps</a> or <a href="https://maps.apple.com/" target="_blank" rel="noopener noreferrer" data-a="maplink">Apple Maps</a>.</li><li>Find the place, or press and hold to drop a pin.</li><li>Tap <b>Share</b>, then <b>Copy link</b>.</li><li>Come back here and paste it below.</li></ol><input id="'+mt+'paste" placeholder="Paste the map link here" autocomplete="off"><div class="err" id="'+mt+'perr"></div><button type="button" class="b sm" data-a="locuse" data-t="'+mt+'">Use this link</button></div>';mp.style.display="block"}
+ else if(a==="locuse"){var ut=b.dataset.t,raw=($(ut+"paste")&&$(ut+"paste").value||"").trim(),um=/https:\/\/[^\s]+/.exec(raw),uu=um?um[0].replace(/[).,;]+$/,""):"";
+  if(!uu||!mapOk(uu)){E(ut+"perr","That is not a Google Maps, Apple Maps, OpenStreetMap or what3words link. In your maps app tap Share, then Copy link.");return}
+  $(ut+"u").value=uu;$(ut+"chip").innerHTML=locChip(ut,uu);
+  var pre0=um?raw.slice(0,um.index).trim().split(/\n/)[0].slice(0,80):"",nm0=mapName(uu)||(hasLink(pre0)?"":pre0);
+  if($(ut+"w")&&!$(ut+"w").value.trim()&&nm0&&!hasLink(nm0))$(ut+"w").value=nm0;
+  $(ut+"paste").value="";$(ut+"panel").style.display="none"}
+ else if(a==="locgps"){var gt=b.dataset.t;if(!navigator.geolocation){toast("This phone can't share its location here. Use Choose on a map.");return}
+  toast("Finding you...");navigator.geolocation.getCurrentPosition(function(pos){var u="https://www.google.com/maps?q="+pos.coords.latitude.toFixed(5)+","+pos.coords.longitude.toFixed(5);if(!$(gt+"u"))return;$(gt+"u").value=u;$(gt+"chip").innerHTML=locChip(gt,u);if($(gt+"w")&&!$(gt+"w").value.trim())$(gt+"w").value="Pinned location";toast("Pinned where you are now.")},function(){toast("Couldn't get your location. Check that location is allowed for PopRound, or use Choose on a map.")},{enableHighAccuracy:true,timeout:10000,maximumAge:60000})}
  else if(a==="dupplan"){dupSheet(b.dataset.p)}
  else if(a==="senddup"){var dp=plans.find(function(x){return x.id===b.dataset.p});if(!dp)return;var dt=v("dt");if(!dt){E("de2","Add what the activity is.");return}
   if(rudeCheck(["dt","dw","dn"],"de2"))return;var dc=pickedCircles();if(!dc.length){E("de2","Tick at least one circle to share with.");return}
-  var di=await sb.rpc("create_plan_multi",{p_circles:dc,p_child:null,p_who:null,p_kind:"dropin",p_title:dt,p_place:v("dw")||"Location to be shared",p_starts:dp.starts_at,p_ends:dp.ends_at,p_open:!!dp.open_ended,p_note:v("dn")||null,p_hide:hidePicked(),p_copy_of:dp.id});
+  var di=await sb.rpc("create_plan_multi",{p_circles:dc,p_child:null,p_who:null,p_kind:"dropin",p_title:dt,p_place:v("dw")||"Location to be shared",p_starts:dp.starts_at,p_ends:dp.ends_at,p_open:!!dp.open_ended,p_note:v("dn")||null,p_hide:hidePicked(),p_copy_of:dp.id,p_place_url:placeOK?(($("du")&&$("du").value)||null):null});
   if(di.error){E("de2",di.error.message);return}
   setSheet("");toast(dc.length>1?"Copied. Your circles have been notified.":"Copied. Your circle has been notified.");await load()}
  else if(a==="sel"){sel=b.dataset.c;draw()}
@@ -890,6 +930,7 @@ async function act(b){
   var s=bt.s,e=bt.e;
   var pcl=pickedCircles();if(!pcl.length){E("pe2","Tick at least one circle to share with.");return}
   var cpa={p_circles:pcl,p_child:wp.childId,p_who:wp.names,p_kind:v("pk"),p_title:t,p_place:v("pw")||"Location to be shared",p_starts:s.toISOString(),p_ends:e.toISOString(),p_open:bt.open,p_note:v("pn")||null,p_hide:hidePicked()};
+  if(placeOK)cpa.p_place_url=($("pu")&&$("pu").value)||null;
   if(copyOK&&$("pcopy"))cpa.p_allow_copy=v("pk")==="dropin"&&$("pcopy").checked&&!cpa.p_hide.length;
   var ins=await sb.rpc("create_plan_multi",cpa);
   if(ins.error)throw ins.error;setSheet("");toast(pcl.length>1?"Sent. Your circles have been notified.":"Sent. Your circle has been notified.");await load()}
@@ -931,6 +972,7 @@ async function act(b){
   var s2=bt2.s,e2=bt2.e;
   var sh=await sb.rpc("set_plan_hidden",{p_plan:b.dataset.p,p_hide:hidePicked()});if(sh.error)throw sh.error;
   var upd={title:et,place_name:v("ew")||"Location to be shared",starts_at:s2.toISOString(),ends_at:e2.toISOString(),open_ended:bt2.open,note:v("en")||null,who_names:wq.names,child_id:wq.childId};
+  if(placeOK)upd.place_url=($("eu")&&$("eu").value)||null;
   if($("ecopy"))upd.allow_copy=$("ecopy").checked&&!hidePicked().length;
   var up=await sb.from("plans").update(upd).eq("id",b.dataset.p);
   if(up.error)throw up.error;

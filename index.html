@@ -228,7 +228,7 @@ function dayLabel(d){return d.toDateString()===new Date().toDateString()?"Today"
 
 var COLORS=["#4361EE","#E4584A","#2EC4B6","#FFC83D","#7B2CBF","#FF8FAB","#1F8A5F","#F77F00"],EMOJIS=["⚽","🏀","🎂","🎈","🏫","🎒","🌳","🛝","🏠","🎨","🎵","🐶","🚲","🏊","🍕","🌈","⭐","🧸","🍎","🐢","👋","🌻","🚀","🎮"];
 var stars={},pickN={color:COLORS[0],emoji:"👋"},pickE={color:COLORS[0],emoji:"👋"},planHides=[];
-var sb,uid=null,me=null,kids=[],blocked=[],dismissed=[],safeT=null,circles=[],plans=[],replies=[],pending=[],copyOf={},copyOK=false,replyWho={},extraN={},whoOK=false,headN={},placeOK=false,sel="all",subscribed=false,toastFor=null,toastKind="New",timer=null;
+var sb,uid=null,me=null,kids=[],blocked=[],dismissed=[],safeT=null,circles=[],plans=[],replies=[],pending=[],copyOf={},copyOK=false,replyWho={},extraN={},whoOK=false,headN={},placeOK=false,sel="all",subscribed=false,recovering=/[#&]type=recovery/.test(location.hash||""),recShown=false,linkErr=/[#&]error(_code)?=/.test(location.hash||""),toastFor=null,toastKind="New",timer=null;
 var SW=["#1F8A5F","#E8A400","#3B6FE0","#E4584A","#8A3FC0","#E0457B","#0E8F8F","#F08A24","#6C8FB8"],CD={g:"#1F8A5F",m:"#E8A400",h:"#3B6FE0"};
 var cols=(function(){var c={g:CD.g,m:CD.m,h:CD.h};try{var j=JSON.parse(localStorage.getItem("pr_cols")||"{}");["g","m","h"].forEach(function(k){if(SW.indexOf(j[k])>-1)c[k]=j[k]})}catch(e){}return c})(),cardOpen={};
 var circRoster={},sponsors=[],spPick={top:"",bottom:""},adArea=(function(){try{return localStorage.getItem("pr_adarea")||""}catch(e){return ""}})(),sponsorSeen={},sponsorHidden={top:false,bottom:false},pcs={},nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null,counts={},reminders={},ckw=null,profPriv={};
@@ -243,7 +243,9 @@ if(SUPABASE_URL.indexOf("PASTE")===0){$("app").innerHTML='<h1>PopRound</h1><p cl
 else{
  sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
  sb.auth.onAuthStateChange(function(_e,s){
-  if(!s){uid=null;me=null;authView();return}
+  if(_e==="PASSWORD_RECOVERY")recovering=true;
+  if(!s){uid=null;me=null;recShown=false;authView();return}
+  if(recovering){uid=null;me=null;recoverView();return}
   if(s.user.id!==uid){uid=s.user.id;setTimeout(start,0)}
  });
 }
@@ -262,9 +264,12 @@ function testingSheet(){
   +'<div class="err" id="ne"></div>'
   +'<button class="big" data-a="ndaaccept">Agree and create my account</button><button class="link" data-a="close">Cancel</button>');
 }
+function recoverView(){if(recShown)return;recShown=true;setSheet("");
+ $("app").innerHTML='<div class="hero"><img src="icon.svg" alt="" width="72" height="72"><h1>PopRound</h1></div><div class="card"><h2 style="margin-top:0">Choose a new password</h2><p class="hint">At least 6 characters. Pick one you do not use anywhere else.</p><label for="np1">New password</label><input id="np1" type="password" autocomplete="new-password" minlength="6"><label for="np2">Type it again</label><input id="np2" type="password" autocomplete="new-password" minlength="6"><div class="err" id="ae"></div><button class="big" data-a="setnewpw">Save new password</button><button class="link" data-a="cancelrecover">Cancel</button></div>'}
+function pwSheet(){setSheet(backBtn("profile")+'<h2>Change password</h2><p class="hint">Type your current password, then choose a new one (at least 6 characters).</p><label for="cpw0">Current password</label><input id="cpw0" type="password" autocomplete="current-password"><label for="cpw1">New password</label><input id="cpw1" type="password" autocomplete="new-password" minlength="6"><label for="cpw2">Type the new password again</label><input id="cpw2" type="password" autocomplete="new-password" minlength="6"><div class="err" id="pwe"></div><button class="big" data-a="savepw">Change password</button><button class="link" data-a="close">Cancel</button><p class="hint">Forgotten your current password? Sign out, then tap Forgot your password on the sign-in page.</p>')}
 function authView(mode){
  mode=mode||"in";setSheet("");
- $("app").innerHTML='<div class="hero"><img src="icon.svg" alt="" width="72" height="72"><h1>PopRound</h1><p class="tagline">Tell your friends where you\'ll be. They pop round if they\'re free.</p><p class="sub">The park at 3, five-a-side after work, the match on Saturday, a drink at the pub, a birthday at the soft play. Share the plan in seconds and let your friends join you. No group-chat scrolling, no awkward invites, no pressure.</p></div><div class="card"><label for="em">Email</label><input id="em" type="email" autocomplete="email"><label for="pw">Password</label><input id="pw" type="password" autocomplete="'+(mode==="in"?"current-password":"new-password")+'" minlength="6">'+(mode==="in"?"":'<label for="sa">Your town or area (optional)</label><input id="sa" maxlength="40" autocomplete="off" placeholder="e.g. Milton Keynes, for local sponsors"><p class="hint">Stays on this phone. You can change it later in Settings.</p>')+'<div class="err" id="ae"></div>'+(mode==="in"?"":'<p class="hint" style="margin:0 0 8px">By creating an account you agree to the <a href="terms.html" target="_blank" rel="noopener">Terms</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy policy</a>.</p>')+'<button class="big" data-a="'+(mode==="in"?"signin":"signup")+'">'+(mode==="in"?"Sign in":"Create account")+'</button><button class="link" data-a="authmode" data-m="'+(mode==="in"?"up":"in")+'">'+(mode==="in"?"New here? Create an account":"I already have an account")+'</button></div>'+welcomeInfo();
+ $("app").innerHTML='<div class="hero"><img src="icon.svg" alt="" width="72" height="72"><h1>PopRound</h1><p class="tagline">Tell your friends where you\'ll be. They pop round if they\'re free.</p><p class="sub">The park at 3, five-a-side after work, the match on Saturday, a drink at the pub, a birthday at the soft play. Share the plan in seconds and let your friends join you. No group-chat scrolling, no awkward invites, no pressure.</p></div><div class="card"><label for="em">Email</label><input id="em" type="email" autocomplete="email"><label for="pw">Password</label><input id="pw" type="password" autocomplete="'+(mode==="in"?"current-password":"new-password")+'" minlength="6">'+(mode==="in"?"":'<label for="sa">Your town or area (optional)</label><input id="sa" maxlength="40" autocomplete="off" placeholder="e.g. Milton Keynes, for local sponsors"><p class="hint">Stays on this phone. You can change it later in Settings.</p>')+'<div class="err" id="ae">'+(mode==="in"&&linkErr?'That reset link has expired or was already used. Type your email, then tap Forgot your password for a new one.':'')+'</div><p class="hint" id="an" style="color:var(--leaf);font-weight:600"></p>'+(mode==="in"?"":'<p class="hint" style="margin:0 0 8px">By creating an account you agree to the <a href="terms.html" target="_blank" rel="noopener">Terms</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy policy</a>.</p>')+'<button class="big" data-a="'+(mode==="in"?"signin":"signup")+'">'+(mode==="in"?"Sign in":"Create account")+'</button>'+(mode==="in"?'<button class="link" data-a="forgot">Forgot your password?</button>':'')+'<button class="link" data-a="authmode" data-m="'+(mode==="in"?"up":"in")+'">'+(mode==="in"?"New here? Create an account":"I already have an account")+'</button></div>'+welcomeInfo();
 }
 function welcomeInfo(){
  return '<div class="why"><h2>Why people like PopRound</h2>'
@@ -546,6 +551,7 @@ function profileSheet(msg){if(Object.keys(profOpen).some(function(q){return prof
  var strip=function(h){return h.replace(/^<h2[^>]*>.*?<\/h2>/,"")};
  setSheet(backBtn("close")+'<h2>Settings</h2>'+(msg?'<p class="hint">'+esc(msg)+'</p>':'')
  +'<div class="acc"><button class="acch" data-a="profilepage"><span>Profile</span><span class="chev" aria-hidden="true">&#8250;</span></button></div>'
+ +'<div class="acc"><button class="acch" data-a="pwsheet"><span>Change password</span><span class="chev" aria-hidden="true">&#8250;</span></button></div>'
  +acc("col","Appearance",
  '<div class="setl">Theme</div><div class="seg">'+[["auto","Auto"],["light","Light"],["dark","Dark"]].map(function(t){return '<button data-a="settheme" data-v="'+t[0]+'" aria-pressed="'+(curTheme()===t[0])+'" class="'+(curTheme()===t[0]?'on':'')+'">'+t[1]+'</button>'}).join("")+'</div><p class="hint" style="margin:6px 0 0">Auto follows your phone\'s setting.</p>'
  +'<div class="setl" style="margin-top:20px">Card colours</div><p class="hint" style="margin:0 0 8px">Pick a colour for each kind of activity. This is only on this phone.</p>'
@@ -758,6 +764,24 @@ async function act(b){
  if(a==="close")setSheet("");
  else if(a==="authmode")authView(b.dataset.m);
  else if(a==="ndaaccept"){var ck=$("nda");if(!ck||!ck.checked){E("ne","Please tick the box to agree.");return}ndaOk=true;setSheet("");var sb2=document.querySelector('#app [data-a="signup"]');if(sb2)act(sb2)}
+ else if(a==="forgot"){var fe=v("em");if(!fe||fe.indexOf("@")<1){E("ae","Type your email above first, then tap Forgot your password.");return}
+  E("ae","");var fr=await sb.auth.resetPasswordForEmail(fe,{redirectTo:location.origin+location.pathname.replace(/index\.html$/,"")});
+  if(fr.error){var fm=(fr.error.message||"").toLowerCase();E("ae",/rate|too many|seconds/.test(fm)?"Too many tries just now. Wait a few minutes and try again.":"We could not send that email: "+fr.error.message);return}
+  if($("an"))$("an").textContent="If that email has an account, we have sent a link to reset your password. Check your inbox and your spam folder."}
+ else if(a==="setnewpw"){var n1=($("np1")||{}).value||"",n2=($("np2")||{}).value||"";
+  if(n1.length<6){E("ae","Use at least 6 characters.");return}if(n1!==n2){E("ae","The two passwords do not match.");return}
+  var nu=await sb.auth.updateUser({password:n1});if(nu.error){E("ae",nu.error.message);return}
+  recovering=false;recShown=false;try{history.replaceState(null,"",location.pathname+location.search)}catch(e5){}
+  var gs=await sb.auth.getSession();if(gs&&gs.data&&gs.data.session&&gs.data.session.user.id!==uid){uid=gs.data.session.user.id;setTimeout(start,0)}}
+ else if(a==="cancelrecover"){recovering=false;recShown=false;try{history.replaceState(null,"",location.pathname+location.search)}catch(e6){}await sb.auth.signOut()}
+ else if(a==="pwsheet"){pwSheet()}
+ else if(a==="savepw"){var c0=($("cpw0")||{}).value||"",c1=($("cpw1")||{}).value||"",c2=($("cpw2")||{}).value||"";
+  if(!c0){E("pwe","Type your current password.");return}if(c1.length<6){E("pwe","The new password needs at least 6 characters.");return}
+  if(c1!==c2){E("pwe","The two new passwords do not match.");return}if(c1===c0){E("pwe","Choose a different password from your current one.");return}
+  var gu=await sb.auth.getUser(),ue=gu&&gu.data&&gu.data.user&&gu.data.user.email;if(!ue){E("pwe","Could not check your account. Sign out and in again, then retry.");return}
+  var ck2=await sb.auth.signInWithPassword({email:ue,password:c0});if(ck2.error){E("pwe",/rate|too many/i.test(ck2.error.message||"")?"Too many tries just now. Wait a few minutes and try again.":"Your current password is not right.");return}
+  var up2=await sb.auth.updateUser({password:c1});if(up2.error){E("pwe",up2.error.message);return}
+  setSheet("");toast("Password changed.")}
  else if(a==="signin"||a==="signup"){
   var em=v("em"),pw=v("pw");if(!em||pw.length<6){E("ae","Enter your email and a password of at least 6 characters.");return}
   if(a==="signup"&&!ndaOk){testingSheet();return}

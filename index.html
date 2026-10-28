@@ -325,7 +325,7 @@ async function load(){
  var r=await Promise.all([
   sb.from("parents").select("*").eq("id",uid).maybeSingle(),
   sb.from("children").select("*").eq("parent_id",uid),
-  sb.from("circle_members").select("circle_id,role,status,show_names,circles!circle_id(name,invite_code,ends_on,color,emoji,created_by,description)").eq("parent_id",uid),
+  sb.from("circle_members").select("circle_id,role,status,show_names,circles!circle_id(name,invite_code,ends_on,color,emoji,created_by,description,area)").eq("parent_id",uid),
   sb.from("plans").select("*,host:parents!host_id(display_name),orig:parents!orig_host_id(display_name),child:children!child_id(first_name),circle:circles!circle_id(name)").gte("ends_at",start.toISOString()).order("starts_at"),
   sb.from("plan_replies").select("plan_id,parent_id,status,parents!parent_id(display_name)"),
   sb.rpc("pending_requests"),
@@ -338,6 +338,7 @@ async function load(){
   sb.from("plan_circles").select("plan_id,circle_id"),
   sb.from("sponsors").select("id,name,headline,body,link_url,image_url,emoji,target_areas,target_countries"),
   sb.from("plan_who").select("plan_id,names"),sb.rpc("my_plan_copies"),sb.from("plan_reply_who").select("plan_id,parent_id,names,head"),sb.rpc("reply_extra"),sb.rpc("reply_heads"),sb.from("plans").select("place_url").limit(1)]);
+ if(r[2]&&r[2].error&&/area/i.test(r[2].error.message||"")){r[2]=await sb.from("circle_members").select("circle_id,role,status,show_names,circles!circle_id(name,invite_code,ends_on,color,emoji,created_by,description)").eq("parent_id",uid)}
  if(r[2]&&r[2].error&&/description/i.test(r[2].error.message||"")){r[2]=await sb.from("circle_members").select("circle_id,role,status,show_names,circles!circle_id(name,invite_code,ends_on,color,emoji,created_by)").eq("parent_id",uid)}
  var bad=r.find(function(x,i){return x.error&&i!==11&&i!==12&&i!==13&&i!==14&&i!==15&&i!==16&&i!==17&&i!==18&&i!==19});profPriv=(r[11]&&r[11].data)||{};whoOK=!!(r[16]&&!r[16].error&&r[17]&&!r[17].error);placeOK=!!(r[19]&&!r[19].error);replyWho={};extraN={};headN={};((r[18]&&!r[18].error&&r[18].data)||[]).forEach(function(x){headN[x.plan_id+"|"+x.parent_id]=x.head});if(whoOK){(r[16].data||[]).forEach(function(x){replyWho[x.plan_id+"|"+x.parent_id]=x});(r[17].data||[]).forEach(function(x){(extraN[x.plan_id]=extraN[x.plan_id]||{})[x.status]=x.n})}copyOK=!!(r[15]&&!r[15].error);copyOf={};((r[15]&&r[15].data)||[]).forEach(function(x){copyOf[x.plan_id]=x.original_id});if(bad){toast("Couldn't load: "+bad.error.message)}
  me=r[0].data;kids=r[1].data||[];circles=r[2].data||[];plans=r[3].data||[];
@@ -427,7 +428,7 @@ function findSheet(msg){
 }
 function newCircleSheet(msg){
  setSheet(backBtn("circles")+'<h2>Create a new circle</h2>'
- +'<label for="cn">Circle name</label><input id="cn" placeholder="Class 2B"><p class="hint">Anything your friends will recognise: a class, a team, a street, a group of mates.</p><label for="cd">Short description (optional)</label><input id="cd" maxlength="60" autocomplete="off" placeholder="e.g. Parents of Class 2B, Oakfield School"><div class="cc" id="cd_c">0 / 60</div><p class="hint">One line to help people check they have the right circle. People see it before they ask to join, so do not put children\'s names or addresses in it.</p><label>Circle look</label><p class="hint">Pick a colour and an icon. Everyone in the circle sees it.</p>'+stylePicker("n",pickN)
+ +'<label for="cn">Circle name</label><input id="cn" placeholder="Class 2B"><p class="hint">Anything your friends will recognise: a class, a team, a street, a group of mates.</p><label for="cd">Short description (optional)</label><input id="cd" maxlength="60" autocomplete="off" placeholder="e.g. Parents of Class 2B, Oakfield School"><div class="cc" id="cd_c">0 / 60</div><p class="hint">One line to help people check they have the right circle. People see it before they ask to join, so do not put children\'s names or addresses in it.</p><label for="ca">Where is this circle based? (optional)</label><input id="ca" maxlength="40" autocomplete="off" placeholder="e.g. Milton Keynes or MK7"><p class="hint">A town or the start of a postcode only, never a street address. Only members see it. It is used to show local sponsors to the people in this circle.</p><label>Circle look</label><p class="hint">Pick a colour and an icon. Everyone in the circle sees it.</p>'+stylePicker("n",pickN)
  +'<label for="kw">Secret word check (optional)</label><p class="hint">Extra protection. Pick a secret word and 2 or 3 decoy words. People joining see them all mixed up and get one try, so only someone you told can get in. PopRound never sends the word to anyone: tell people yourself, in person or by text.</p><input id="kw" maxlength="30" autocomplete="off" placeholder="Secret word, e.g. Tiger"><input id="kd1" maxlength="30" autocomplete="off" placeholder="Decoy word 1" style="margin-top:6px"><input id="kd2" maxlength="30" autocomplete="off" placeholder="Decoy word 2" style="margin-top:6px"><input id="kd3" maxlength="30" autocomplete="off" placeholder="Decoy word 3 (optional)" style="margin-top:6px">'
  +'<label for="ce2">Ends on (optional)</label><input id="ce2" type="text" inputmode="text" autocomplete="off" placeholder="e.g. 12 Oct, 12/10 or tomorrow"><button type="button" class="b sm" data-a="cal" data-t="ce2" style="margin-top:6px">Calendar</button><input type="date" id="ce2_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none"><div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"><button type="button" class="b sm" data-a="qd" data-t="ce2" data-n="7">+1 week</button><button type="button" class="b sm" data-a="qd" data-t="ce2" data-n="30">+1 month</button><button type="button" class="b sm" data-a="qd" data-t="ce2" data-n="90">+3 months</button><button type="button" class="b sm" data-a="qd" data-t="ce2" data-n="0">No end date</button></div><p class="hint">Type a date like 12 Oct or 12/10/2026, or use a button.</p><p class="hint">Everyone sees this date before they join. When it passes, the circle and its activities disappear for everyone, so you are not left with old circles. Leave empty for a circle that keeps going.</p>'
  +'<button class="big" data-a="mkcircle">Create circle</button>'
@@ -456,6 +457,7 @@ function circleSheet(cid,msg){
    +(r.parent_id&&r.parent_id!==uid?'<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'+(org&&r.role!=="organiser"?'<button class="b sm" data-a="mkorg" data-c="'+esc(cid)+'" data-p="'+esc(r.parent_id)+'">Make organiser</button> <button class="b sm del" data-a="rmmem" data-c="'+esc(cid)+'" data-p="'+esc(r.parent_id)+'">Remove</button>':'')+'<button class="b sm" data-a="safety" data-u="'+esc(r.parent_id)+'" data-c="'+esc(cid)+'">Report / block</button></div>':'')+'</div>'}).join("")+'</div>';
  var endB='<p class="hint" style="margin-top:0">'+(ci.ends_on?esc(longDate(ci.ends_on))+'. After this date the circle and its activities disappear for everyone.':'This circle has no end date.')+'</p>'
   +(org?'<label for="ed">Change end date</label><input id="ed" type="text" inputmode="text" autocomplete="off" placeholder="e.g. 12 Oct, 12/10 or tomorrow" value="'+esc(ci.ends_on?fmtDate(ci.ends_on):"")+'"><button type="button" class="b sm" data-a="cal" data-t="ed" style="margin-top:6px">Calendar</button><input type="date" id="ed_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none"><div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0"><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="7">+1 week</button><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="30">+1 month</button><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="90">+3 months</button><button type="button" class="b sm" data-a="qd" data-t="ed" data-n="0">No end date</button></div><p class="hint">Leave empty for no end date. Everyone sees the new date.</p><button class="b sm on" data-a="saveend" data-c="'+esc(cid)+'">Save date</button>':'');
+ var areaB=org?'<p class="hint" style="margin-top:0">A town or the start of a postcode, for example Milton Keynes or MK7. Never a street address. Only members see it. It is used to show local sponsors to the people in this circle.</p><input id="carea" maxlength="40" autocomplete="off" placeholder="e.g. Milton Keynes or MK7" value="'+esc(ci.area||"")+'"><button class="b sm on" data-a="savearea" data-c="'+esc(cid)+'">Save</button>':'';
  var descB=org?'<p class="hint" style="margin-top:0">One short line to help people check they have the right circle. People see it before they ask to join, so do not put children\'s names or addresses in it.</p><input id="cdesc" maxlength="60" autocomplete="off" placeholder="e.g. Parents of Class 2B, Oakfield School" value="'+esc(ci.description||"")+'"><div class="cc" id="cdesc_c">'+(ci.description||"").length+' / 60</div><button class="b sm on" data-a="savedesc" data-c="'+esc(cid)+'">Save</button>':'';
  var lookB='<p class="hint" style="margin-top:0">Everyone in the circle sees this colour and icon.</p>'+stylePicker("e",pickE)+'<button class="b sm on" data-a="savestyle" data-c="'+esc(cid)+'">Save look</button>';
  var kwB='<p class="hint" style="margin-top:0">'+(ckw?'On. People joining pick the secret word from a mixed-up list and get one try. A wrong pick quietly puts them on the Removed list until you allow them back.':'Off. Anyone with the code can ask to join (you still approve them).')+' PopRound never sends the word to anyone: tell people yourself.</p><div class="card"><input id="kw" maxlength="30" autocomplete="off" placeholder="Secret word" value="'+esc(ckw?ckw.secret:"")+'">'+[0,1,2].map(function(i){return '<input id="kd'+(i+1)+'" maxlength="30" autocomplete="off" placeholder="Decoy word '+(i+1)+'" style="margin-top:6px" value="'+esc(ckw&&ckw.decoys[i]||"")+'">'}).join("")+'<div style="display:flex;gap:8px;margin-top:10px"><button class="b sm on" data-a="savekw" data-c="'+esc(cid)+'">Save</button>'+(ckw?'<button class="b sm del" data-a="clearkw" data-c="'+esc(cid)+'">Turn off</button>':'')+'</div></div>';
@@ -468,7 +470,7 @@ function circleSheet(cid,msg){
  +acc("c_code","Circle code",code)
  +acc("c_mem","Members ("+act.length+")",mem)
  +acc("c_end","End date · "+esc(endLabel(ci.ends_on)),endB)
- +(org?acc("c_desc","Description"+(ci.description?"":" · none"),descB)+acc("c_look","Circle look",lookB)+acc("c_kw","Secret word check · "+(ckw?"On":"Off"),kwB):'')
+ +(org?acc("c_desc","Description"+(ci.description?"":" · none"),descB)+acc("c_area","Area"+(ci.area?"":" · none"),areaB)+acc("c_look","Circle look",lookB)+acc("c_kw","Secret word check · "+(ckw?"On":"Off"),kwB):'')
  +(org&&gone.length?acc("c_gone","Removed ("+gone.length+")",goneB):'')
  +acc("c_me","Your settings",meB)
  +'<div class="acc"></div><button class="link" data-a="leave" data-c="'+esc(cid)+'">Leave this circle</button>');
@@ -668,9 +670,14 @@ function areaMatch(user,token){
  if(sh.length>=5&&lg.indexOf(sh)===0)return true;
  if(u.length>=5){var d=lev(u,t);if(d<=(u.length>=9?2:1))return true}
  return false}
+var TOWNS="AB:aberdeen;AL:st albans;B:birmingham;BA:bath;BB:blackburn;BD:bradford;BH:bournemouth;BL:bolton;BN:brighton;BR:bromley/london;BS:bristol;BT:belfast;CA:carlisle;CB:cambridge;CF:cardiff;CH:chester;CM:chelmsford;CO:colchester;CR:croydon/london;CT:canterbury;CV:coventry;CW:crewe;DA:dartford/london;DD:dundee;DE:derby;DG:dumfries;DH:durham;DL:darlington;DN:doncaster;DT:dorchester;DY:dudley;E:london;EC:london;EH:edinburgh;EN:enfield/london;EX:exeter;FK:falkirk;FY:blackpool;G:glasgow;GL:gloucester;GU:guildford;HA:harrow/london;HD:huddersfield;HG:harrogate;HP:hemel hempstead;HR:hereford;HU:hull;HX:halifax;IG:ilford/london;IP:ipswich;IV:inverness;KA:kilmarnock;KT:kingston upon thames/london;KY:kirkcaldy;L:liverpool;LA:lancaster;LD:llandrindod wells;LE:leicester;LL:llandudno;LN:lincoln;LS:leeds;LU:luton;M:manchester;ME:medway/rochester;MK:milton keynes;ML:motherwell;N:london;NE:newcastle;NG:nottingham;NN:northampton;NP:newport;NR:norwich;NW:london;OL:oldham;OX:oxford;PA:paisley;PE:peterborough;PH:perth;PL:plymouth;PO:portsmouth;PR:preston;RG:reading;RH:redhill;RM:romford/london;S:sheffield;SA:swansea;SE:london;SG:stevenage;SK:stockport;SL:slough;SM:sutton/london;SN:swindon;SO:southampton;SP:salisbury;SR:sunderland;SS:southend;ST:stoke on trent;SW:london;SY:shrewsbury;TA:taunton;TD:galashiels;TF:telford;TN:tunbridge wells;TQ:torquay;TR:truro;TS:middlesbrough;TW:twickenham/london;UB:uxbridge/southall/london;W:london;WA:warrington;WC:london;WD:watford;WF:wakefield;WN:wigan;WR:worcester;WS:walsall;WV:wolverhampton;YO:york".split(";").reduce(function(o,x){var i=x.indexOf(":");o[x.slice(0,i).toLowerCase()]=x.slice(i+1).split("/");return o},{});
+function areaNames(x){var u=nrm(x),m=/^([a-z]{1,2})(\d[a-z\d]?)?(?: ?\d[a-z]{2})?$/.exec(u);if(!m||!TOWNS[m[1]])return [];if(!m[2]&&m[1].length<2)return [];return TOWNS[m[1]]}
+function areaMatchAny(user,token){var us=[user].concat(areaNames(user)),ts=[token].concat(areaNames(token));for(var i=0;i<us.length;i++)for(var j=0;j<ts.length;j++)if(areaMatch(us[i],ts[j]))return true;return false}
+function circleAreas(){return approved().map(function(c){return c.circles&&c.circles.area}).filter(Boolean)}
 function adSplit(t){return String(t||"").split(",").map(function(x){return x.trim().toLowerCase()}).filter(Boolean)}
 function adToken(sp){var ar=adSplit(sp.target_areas),i;
- if(adArea){for(i=0;i<ar.length;i++)if(areaMatch(adArea,ar[i]))return ar[i];return ""}
+ if(adArea){for(i=0;i<ar.length;i++)if(areaMatchAny(adArea,ar[i]))return ar[i];return ""}
+ var ca=circleAreas();for(i=0;i<ar.length;i++)for(var k=0;k<ca.length;k++)if(areaMatchAny(ca[k],ar[i]))return ar[i];
  var pl=(typeof plans!=="undefined"&&plans||[]).map(function(p){return " "+nrm(p.place_name)+" "});
  for(i=0;i<ar.length;i++){var t=nrm(ar[i]);if(t.length>=4&&pl.some(function(x){return x.indexOf(" "+t+" ")>-1}))return ar[i]}
  return ""}
@@ -691,7 +698,7 @@ function pickSponsor(slot,excl){slot=slot||"top";
 var adDaysN=(function(){var n=0;try{var a=JSON.parse(localStorage.getItem("pr_days")||"[]"),t=new Date().toISOString().slice(0,10);if(a.indexOf(t)<0){a.push(t);a=a.slice(-10);localStorage.setItem("pr_days",JSON.stringify(a))}n=a.length}catch(e){}return n})();
 function nudgeCard(){
  var no=false;try{no=!!localStorage.getItem("pr_adnudge")}catch(e){}
- if(no||adArea||adDaysN<3||!sponsors.some(function(x){return adSplit(x.target_areas).length}))return "";
+ if(no||adArea||circleAreas().length||adDaysN<3||!sponsors.some(function(x){return adSplit(x.target_areas).length}))return "";
  return '<div class="card nudge"><b>Want local offers?</b><p class="where" style="margin:4px 0 8px">Add your town or area to see sponsors near you. It stays on this phone.</p><div style="display:flex;gap:8px"><input id="nz" maxlength="40" autocomplete="off" placeholder="e.g. Milton Keynes or MK7" aria-label="Your town or area" style="flex:1;min-width:0"><button class="b sm on" data-a="nudgesave">Save</button></div><button class="link" style="font-size:13px" data-a="nudgeno">No thanks</button></div>'}
 function houseCard(){
  var em=String(window.POPROUND_ADS_EMAIL||"").trim();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em))return "";
@@ -862,6 +869,8 @@ async function act(b){
   if($("prev_"+g))$("prev_"+g).innerHTML=bub(pk)}
  else if(a==="savestyle"){var ss=await sb.rpc("set_circle_style",{p_circle:b.dataset.c,p_color:pickE.color,p_emoji:pickE.emoji});if(ss.error){E("ce3",ss.error.message);return}
   await load();await loadRoster(b.dataset.c);circleSheet(b.dataset.c,"Look saved. Everyone in the circle sees it.");flash('[data-a="savestyle"]')}
+ else if(a==="savearea"){if(rudeCheck(["carea"],"ce3"))return;var saq=await sb.rpc("set_circle_area",{p_circle:b.dataset.c,p_text:v("carea")});if(saq.error){E("ce3",saq.error.message);return}
+  await load();await loadRoster(b.dataset.c);circleSheet(b.dataset.c,"Area saved.");flash('[data-a="savearea"]')}
  else if(a==="savedesc"){if(rudeCheck(["cdesc"],"ce3"))return;var sdq=await sb.rpc("set_circle_description",{p_circle:b.dataset.c,p_text:v("cdesc")});if(sdq.error){E("ce3",sdq.error.message);return}
   await load();await loadRoster(b.dataset.c);circleSheet(b.dataset.c,"Description saved.");flash('[data-a="savedesc"]')}
  else if(a==="maplink"){return}
@@ -919,12 +928,13 @@ async function act(b){
   await load();profilePage("Saved.");flash('[data-a="saveprofile"]')}
  else if(a==="newplan"){if(!contacts.length)await loadContacts();planSheet()}
  else if(a==="mkcircle"){var cn=v("cn");if(!cn){E("ce","Give your circle a name.");return}
-  var cdsc=v("cd");if(rudeCheck(["cn","cd"],"ce"))return;
+  var cdsc=v("cd"),car=v("ca");if(rudeCheck(["cn","cd","ca"],"ce"))return;
   var kw0=v("kw"),kd0=["kd1","kd2","kd3"].map(v).filter(Boolean);
   if(kw0&&kd0.length<2){E("ce","Add at least 2 decoy words for the secret word check, or clear the secret word.");return}
   if(!kw0&&kd0.length){E("ce","Add the secret word too, or clear the decoy words.");return}
   var ED=null;if(v("ce2")){ED=parseDate(v("ce2"));if(!ED||ED<todayStr()){E("ce","Type the end date like 12 Oct or 12/10/2026, in the future.");return}}
   var cp={p_name:cn,p_ends:ED,p_color:pickN.color,p_emoji:pickN.emoji};if(cdsc)cp.p_description=cdsc;var q=await sb.rpc("create_circle",cp);if(q.error){E("ce",q.error.message);return}
+  if(car){var aq=await sb.rpc("set_circle_area",{p_circle:q.data,p_text:car});if(aq.error){await load();circlesSheet("Circle created, but the area was not saved ("+aq.error.message+"). Open the circle to try again.");return}}
   if(kw0){var kq=await sb.rpc("set_circle_keyword",{p_circle:q.data,p_secret:kw0,p_decoys:kd0});if(kq.error){await load();circlesSheet("Circle created, but the secret word was not saved ("+kq.error.message+"). Open the circle to try again.");return}}
   await load();circlesSheet("Circle created. Share the code so people can ask to join."+(kw0?" Tell them the secret word yourself.":""))}
  else if(a==="qd"){unflash();var el=$(b.dataset.t),n=+b.dataset.n;if(!n&&!b.dataset.keep)el.value="";else{var d=new Date();d.setDate(d.getDate()+n);el.value=fmtDate(d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()))}endHint()}

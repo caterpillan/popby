@@ -231,7 +231,7 @@ function dayLabel(d){return d.toDateString()===new Date().toDateString()?"Today"
 
 var COLORS=["#4361EE","#E4584A","#2EC4B6","#FFC83D","#7B2CBF","#FF8FAB","#1F8A5F","#F77F00"],EMOJIS=["⚽","🏀","🎂","🎈","🏫","🎒","🌳","🛝","🏠","🎨","🎵","🐶","🚲","🏊","🍕","🌈","⭐","🧸","🍎","🐢","👋","🌻","🚀","🎮"];
 var stars={},pickN={color:COLORS[0],emoji:"👋"},pickE={color:COLORS[0],emoji:"👋"},planHides=[];
-var sb,uid=null,me=null,kids=[],blocked=[],dismissed=[],safeT=null,circles=[],plans=[],replies=[],pending=[],copyOf={},copyOK=false,replyWho={},extraN={},whoOK=false,headN={},placeOK=false,sel="all",subscribed=false,recovering=/[#&]type=recovery/.test(location.hash||""),recShown=false,linkErr=/[#&]error(_code)?=/.test(location.hash||""),toastFor=null,toastKind="New",timer=null;
+var sb,uid=null,me=null,kids=[],blocked=[],dismissed=[],safeT=null,circles=[],plans=[],replies=[],pending=[],copyOf={},copyOK=false,replyWho={},extraN={},whoOK=false,headN={},placeOK=false,sel="all",subscribed=false,recovering=/[#&]type=recovery/.test(location.hash||""),recShown=false,linkErr=/[#&]error(_code)?=/.test(location.hash||""),toastFor=null,toastKind="New",timer=null,goneShown=false,rmShown={};
 var SW=["#1F8A5F","#E8A400","#3B6FE0","#E4584A","#8A3FC0","#E0457B","#0E8F8F","#F08A24","#6C8FB8"],CD={g:"#1F8A5F",m:"#E8A400",h:"#3B6FE0"};
 var cols=(function(){var c={g:CD.g,m:CD.m,h:CD.h};try{var j=JSON.parse(localStorage.getItem("pr_cols")||"{}");["g","m","h"].forEach(function(k){if(SW.indexOf(j[k])>-1)c[k]=j[k]})}catch(e){}return c})(),cardOpen={};
 var circRoster={},sponsors=[],spPick={top:"",bottom:""},adArea=(function(){try{return localStorage.getItem("pr_adarea")||""}catch(e){return ""}})(),sponsorSeen={},sponsorHidden={top:false,bottom:false},pcs={},nicks={},roster=[],contacts=[],hiddenIds=[],joinInfo=null,counts={},reminders={},ckw=null,profPriv={};
@@ -247,7 +247,7 @@ else{
  sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
  sb.auth.onAuthStateChange(function(_e,s){
   if(_e==="PASSWORD_RECOVERY")recovering=true;
-  if(!s){uid=null;me=null;recShown=false;authView();return}
+  if(!s){uid=null;me=null;recShown=false;if(goneShown)return;authView();return}
   if(recovering){uid=null;me=null;recoverView();return}
   if(s.user.id!==uid){uid=s.user.id;setTimeout(start,0)}
  });
@@ -289,7 +289,23 @@ function recordOpen(){
  try{var t=new Date().toISOString().slice(0,10);if(localStorage.getItem("pr_open_day")===t)return;
   var inst=!!(window.matchMedia&&matchMedia("(display-mode: standalone)").matches)||navigator.standalone===true;
   sb.rpc("record_app_open",{p_installed:inst}).then(function(r){if(!r.error){try{localStorage.setItem("pr_open_day",t)}catch(e){}}},function(){})}catch(e){}}
+async function goneCheck(){
+ try{var g=await sb.auth.getUser();
+  if(g&&g.error&&/does not exist|user_not_found|sub claim/i.test((g.error.message||"")+" "+(g.error.code||""))){return true}
+ }catch(e){}
+ return false}
+function goneView(){
+ goneShown=true;uid=null;me=null;subscribed=false;try{sb.removeAllChannels()}catch(e){}
+ try{sb.auth.signOut({scope:"local"})}catch(e){}
+ setSheet("");
+ var em=String(window.POPROUND_SUPPORT_EMAIL||"").trim(),ok=/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em);
+ $("app").innerHTML='<div class="hero"><img src="icon.svg" alt="" width="72" height="72"><h1>PopRound</h1></div><div class="card"><h2 style="margin-top:0">This account is no longer here</h2>'
+  +'<p>We can\'t find your PopRound account. Either it was deleted (for example from another phone), or it was removed by us.</p>'
+  +'<p class="hint"><b>If you deleted it:</b> nothing else to do. Your details and plans are gone. You are welcome to make a new account any time.</p>'
+  +'<p class="hint"><b>If you did not delete it:</b> '+(ok?'email us at <a href="mailto:'+esc(em)+'?subject='+encodeURIComponent("PopRound account removed")+'">'+esc(em)+'</a> and tell us the email address you signed up with. We will look into it.':'please contact whoever gave you PopRound and tell them the email address you signed up with.')+' If an account is removed for breaking the family-friendly rules, we cannot bring it back, but you can write to us if you think we got it wrong.</p>'
+  +'<button class="big" data-a="gonedone">Back to sign in</button></div>'}
 async function start(){
+ if(await goneCheck()){goneView();return}
  await load();recordOpen();
  if(!me)setupSheet();
  if(!subscribed){subscribed=true;
@@ -332,8 +348,16 @@ if(r[13]&&r[13].error){try{r[13]=await sb.from("sponsors").select("id,name,headl
  nicks={};(r[6].data||[]).forEach(function(n){nicks[n.circle_id]=n.nickname});
  if(sel!=="all"&&!approved().some(function(c){return c.circle_id===sel}))sel="all";
  if(toastFor){var p=plans.find(function(x){return x.id===toastFor});if(p)toast(toastKind+": "+hostName(p)+" · "+p.title+", "+tm(new Date(p.starts_at))+"–"+tm(new Date(p.ends_at)));toastFor=null;toastKind="New"}
- draw();
+ draw();removedNotice();
 }
+function removedNotice(){
+ if(!me||recovering||$("sheet").innerHTML)return;
+ var seen=[];try{seen=JSON.parse(localStorage.getItem("pr_rm_seen")||"[]")}catch(e){}
+ var gone=circles.filter(function(c){return c.status==="removed"&&seen.indexOf(c.circle_id)<0&&!rmShown[c.circle_id]});
+ if(!gone.length)return;
+ gone.forEach(function(c){rmShown[c.circle_id]=1});
+ var names=gone.map(function(c){return c.circles&&c.circles.name?"\u201C"+esc(c.circles.name)+"\u201D":"a circle"});
+ setSheet("<h2>You are no longer in "+(names.length===1?names[0]:"some circles")+"</h2><p>The organiser has changed who is in "+(names.length===1?"this circle":"these circles")+", so you no longer see its plans"+(names.length>1?": "+names.join(", "):"")+".</p><p class=\"hint\"><b>What you can do:</b> if you think this is a mistake, ask the organiser or whoever invited you. You can also join a different circle any time from Your circles, using a code from a friend.</p><button class=\"big\" data-a=\"rmseen\">OK</button>")}
 function hd(pid,par){return headN[pid+"|"+par]||(replyWho[pid+"|"+par]||{}).head||1}
 function xN(pid,st){return ((extraN[pid]||{})[st])||0}
 function hasMyCopy(pid){return Object.keys(copyOf).some(function(c){return copyOf[c]===pid&&plans.some(function(q){return q.id===c&&!q.cancelled_at})})}
@@ -780,6 +804,8 @@ async function act(b){
   var nu=await sb.auth.updateUser({password:n1});if(nu.error){E("ae",nu.error.message);return}
   recovering=false;recShown=false;try{history.replaceState(null,"",location.pathname+location.search)}catch(e5){}
   var gs=await sb.auth.getSession();if(gs&&gs.data&&gs.data.session&&gs.data.session.user.id!==uid){uid=gs.data.session.user.id;setTimeout(start,0)}}
+ else if(a==="gonedone"){goneShown=false;authView()}
+ else if(a==="rmseen"){try{var rl=JSON.parse(localStorage.getItem("pr_rm_seen")||"[]");Object.keys(rmShown).forEach(function(k){if(rl.indexOf(k)<0)rl.push(k)});localStorage.setItem("pr_rm_seen",JSON.stringify(rl.slice(-50)))}catch(e){}setSheet("")}
  else if(a==="cancelrecover"){recovering=false;recShown=false;try{history.replaceState(null,"",location.pathname+location.search)}catch(e6){}await sb.auth.signOut()}
  else if(a==="togglepw"){var pe=$(b.dataset.t);if(!pe)return;var shown=pe.type==="text";pe.type=shown?"password":"text";b.innerHTML=shown?EYE_ON:EYE_OFF;b.setAttribute("aria-label",shown?"Show password":"Hide password");b.setAttribute("aria-pressed",shown?"false":"true")}
  else if(a==="delsheet"){delSheet()}

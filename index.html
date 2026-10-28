@@ -291,21 +291,23 @@ function recordOpen(){
   sb.rpc("record_app_open",{p_installed:inst}).then(function(r){if(!r.error){try{localStorage.setItem("pr_open_day",t)}catch(e){}}},function(){})}catch(e){}}
 async function goneCheck(){
  try{var g=await sb.auth.getUser();
+  if(g&&g.error&&/banned/i.test((g.error.message||"")+" "+(g.error.code||""))){return "paused"}
   if(g&&g.error&&/does not exist|user_not_found|sub claim/i.test((g.error.message||"")+" "+(g.error.code||""))){return true}
  }catch(e){}
  return false}
-function goneView(){
+function goneView(kind){
  goneShown=true;uid=null;me=null;subscribed=false;try{sb.removeAllChannels()}catch(e){}
  try{sb.auth.signOut({scope:"local"})}catch(e){}
  setSheet("");
  var em=String(window.POPROUND_SUPPORT_EMAIL||"").trim(),ok=/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em);
- $("app").innerHTML='<div class="hero"><img src="icon.svg" alt="" width="72" height="72"><h1>PopRound</h1></div><div class="card"><h2 style="margin-top:0">This account is no longer here</h2>'
+ $("app").innerHTML='<div class="hero"><img src="icon.svg" alt="" width="72" height="72"><h1>PopRound</h1></div><div class="card">'+(kind==="paused"?'<h2 style="margin-top:0">Your account has been paused</h2><p>Your PopRound account has been paused because it broke our family-friendly rules or put someone\'s safety at risk. You no longer appear in any circle, and your activities have been removed.</p><p class="hint"><b>What you can do:</b> '+(ok?'if you think we got this wrong, email us at <a href="mailto:'+esc(em)+'?subject='+encodeURIComponent("PopRound account paused")+'">'+esc(em)+'</a> with the email address you signed up with. We will look at it and reply.':'if you think we got this wrong, contact whoever gave you PopRound and tell them the email address you signed up with.')+' Please do not make a new account to get round this.</p>'
+  :'<h2 style="margin-top:0">This account is no longer here</h2>'
   +'<p>We can\'t find your PopRound account. Either it was deleted (for example from another phone), or it was removed by us.</p>'
   +'<p class="hint"><b>If you deleted it:</b> nothing else to do. Your details and plans are gone. You are welcome to make a new account any time.</p>'
-  +'<p class="hint"><b>If you did not delete it:</b> '+(ok?'email us at <a href="mailto:'+esc(em)+'?subject='+encodeURIComponent("PopRound account removed")+'">'+esc(em)+'</a> and tell us the email address you signed up with. We will look into it.':'please contact whoever gave you PopRound and tell them the email address you signed up with.')+' If an account is removed for breaking the family-friendly rules, we cannot bring it back, but you can write to us if you think we got it wrong.</p>'
+  +'<p class="hint"><b>If you did not delete it:</b> '+(ok?'email us at <a href="mailto:'+esc(em)+'?subject='+encodeURIComponent("PopRound account removed")+'">'+esc(em)+'</a> and tell us the email address you signed up with. We will look into it.':'please contact whoever gave you PopRound and tell them the email address you signed up with.')+' </p>')
   +'<button class="big" data-a="gonedone">Back to sign in</button></div>'}
 async function start(){
- if(await goneCheck()){goneView();return}
+ var gk=await goneCheck();if(gk){goneView(gk===true?"":gk);return}
  await load();recordOpen();
  if(!me)setupSheet();
  if(!subscribed){subscribed=true;
@@ -836,6 +838,7 @@ async function act(b){
   if(a==="signup"){var sa0=v("sa");if(sa0)setAdArea(sa0,true)}
   var r=a==="signin"?await sb.auth.signInWithPassword({email:em,password:pw}):await sb.auth.signUp({email:em,password:pw,options:{data:{testing_notice_accepted_at:new Date().toISOString(),testing_notice_version:"1"}}});
   if(r.error){var m=r.error.message||"",lm=m.toLowerCase();
+   if(lm.indexOf("banned")>-1){goneView("paused");return}
    if(lm.indexOf("already")>-1&&lm.indexOf("registered")>-1)E("ae","That email already has an account. Tap Sign in below and use your password.");
    else if(lm.indexOf("rate limit")>-1||lm.indexOf("too many")>-1)E("ae","Too many tries just now. Wait a few minutes and try again. ("+m+")");
    else if(lm.indexOf("invalid login")>-1)E("ae","Wrong email or password. If you haven't made an account yet, tap Create account.");

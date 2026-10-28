@@ -591,7 +591,7 @@ function profileSheet(msg){if(Object.keys(profOpen).some(function(q){return prof
  +'<button class="b sm" data-a="setcol" data-k="reset" style="margin-top:4px">Reset colours</button>')
  +acc("push","Notifications",'<div id="pushbox"><p class="hint">Checking...</p></div>')
  +acc("priv","Privacy & safety",(typeof me.name_public==="boolean"?acc("nm","Who can see my name",'<p class="hint"><b>Off (recommended):</b> your name and the first names of the family members you bring along are shown only to people in circles you organise. The organiser of any circle you are in can always see them. Everyone else sees "A member". Totals such as "3 going" still count you.</p><p class="hint"><b>On:</b> everyone in your circles can see them.</p><button class="b sm'+(me.name_public?' on':'')+'" data-a="togglepublic">Show my name to everyone: '+(me.name_public?'On':'Off')+'</button>'):"")+acc("hide","Hide my activities from",strip(hideList))+acc("dis","Hidden activities"+(dis.length?" ("+dis.length+")":""),strip(disList))+acc("blk","Blocked (safety)"+(blocked.length?" ("+blocked.length+")":""),strip(blk)))
- +acc("legal","About & legal",aboutBox())+helpRow()
+ +'<div class="acc"><a class="acch" style="text-decoration:none" href="guide.html" target="_blank" rel="noopener"><span>How PopRound works</span><span class="chev" aria-hidden="true">&#8250;</span></a></div>'+acc("legal","About & legal",aboutBox())+helpRow()
  +'<div class="acc"></div><button class="link" data-a="signout">Sign out</button>');
  pushBox();
 }

@@ -2,7 +2,7 @@
   "id": "./",
   "name": "PopRound",
   "short_name": "PopRound",
-  "description": "Share where you'll be, from a trip to the park to a dentist appointment. Friends and family in your circle see it and can join if they're free.",
+  "description": "A private activity planner for family and friends. Share where you'll be, from a trip to the park to a dentist appointment. Friends and family in your circle see it and can join if they're free.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

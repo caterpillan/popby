@@ -111,7 +111,7 @@ a.maplink{color:inherit;font-weight:600;text-decoration:underline;text-underline
 .acc{border-top:1px solid var(--line)}
 .acch{width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;background:none;border:0;font:inherit;font-size:18px;font-weight:800;color:var(--ink);padding:14px 2px;cursor:pointer;text-align:left}
 .acch .chev{flex:none;transition:transform .15s;color:var(--mute)}
-.acc.open>.acch .chev{transform:rotate(90deg)}
+.acc.open>.acch .chev{transform:rotate(90deg)}.asum{display:block;font-size:13px;font-weight:600;color:var(--mute);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100vw - 90px)}.acc.open .asum{display:none}
 .accb{display:none;padding:0 2px 14px}
 .acc.open>.accb{display:block}.accb .acch{font-size:16px}.accb .acc:last-child{border-bottom:0}
 .rbtn{position:relative;flex:none;width:46px;height:46px;border-radius:50%;border:2px solid var(--ink);overflow:visible;background:var(--card);color:var(--ink);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
@@ -180,7 +180,7 @@ function locBox(pre,name,url,ph){var inp='<label for="'+pre+'w">Where</label><in
  return inp+'<input type="hidden" id="'+pre+'u" value="'+esc(url&&mapOk(url)?url:"")+'"><div id="'+pre+'chip">'+locChip(pre,url&&mapOk(url)?url:"")+'</div>'
  +'<div class="locbtns"><button type="button" class="b sm" data-a="locmap" data-t="'+pre+'">\ud83d\udccd Choose on a map</button></div>'
  +'<div id="'+pre+'panel" style="display:none"></div><p class="hint" style="margin:6px 0 0">You can still just type the place. Anyone who sees the activity can open a map link.</p>'}
-function rudeCheck(ids,errId){for(var i=0;i<ids.length;i++){var el=$(ids[i]);if(el&&hasLink(el.value)){var le=$(errId);if(le)le.textContent="Please leave web links out. To share a place, use the map button.";return true}if(el&&rudeWord(el.value)){var ee=$(errId);if(ee)ee.textContent="Please reword that. PopRound keeps names and activities family-friendly.";return true}}return false}
+function rudeCheck(ids,errId){for(var i=0;i<ids.length;i++){var el=$(ids[i]);if(el&&hasLink(el.value)){var le=$(errId);if(le)le.textContent="Please leave web links out. To share a place, use the map button.";if(/^(pe2|ee2)$/.test(errId))openSecs();return true}if(el&&rudeWord(el.value)){var ee=$(errId);if(ee)ee.textContent="Please reword that. PopRound keeps names and activities family-friendly.";if(/^(pe2|ee2)$/.test(errId))openSecs();return true}}return false}
 var APP_VERSION="1.0 (Oct 2026)";
 function adEmailOk(){return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(window.POPROUND_ADS_EMAIL||"").trim())}
 function helpRow(){var em=String(window.POPROUND_SUPPORT_EMAIL||"").trim(),ok=/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em);
@@ -205,6 +205,7 @@ function buildTimes(dd,ft,ut){
  if(e.getTime()===s.getTime())return{err:"The start and end time are the same."};
  return{s:s,e:e,open:false}}
 function endHint(){
+ secSums();
  var pre=$("pf")?["pf","pe","pd","pend"]:$("ef")?["ef","ee","ed2","eend"]:null;if(!pre||!$(pre[3]))return;
  var ft=parseTime($(pre[0]).value),ut=($(pre[1]).value||"").trim(),dd=parseDate($(pre[2]).value),msg="";
  if(!ut)msg="No end time. It will show as \u201cfrom "+(ft?tm(new Date("2000-01-01T"+ft)):"the start time")+"\u201d and fade out a few hours later.";
@@ -404,18 +405,28 @@ async function fillHideList(cids,checked){
  box.innerHTML=ppl.length?ppl.map(function(r){var perm=hiddenIds.indexOf(r.parent_id)>-1;
   return '<label style="display:flex;align-items:center;gap:10px;margin:6px 0;font-weight:600"><input type="checkbox" style="width:22px;height:22px;flex:none" data-hide="'+esc(r.parent_id)+'"'+(perm||checked.indexOf(r.parent_id)>-1?' checked':'')+(perm?' disabled':'')+'><span>'+esc(r.display_name)+(perm?' <span class="where">(always hidden)</span>':'')+'</span></label>'}).join(""):'<p class="hint">No one else is in this circle yet.</p>'}
 function hidePicked(){return [].slice.call(document.querySelectorAll("#sheet [data-hide]:checked:not(:disabled)")).map(function(x){return x.dataset.hide})}
+function fsec(k,title,body,open){return '<div class="acc'+(open?' open':'')+'"><button type="button" class="acch" data-a="sec" data-k="f_'+k+'" aria-expanded="'+(open?"true":"false")+'"><span style="min-width:0"><span>'+title+'</span><span class="asum" id="as_'+k+'"></span></span><span class="chev" aria-hidden="true">&#8250;</span></button><div class="accb">'+body+'</div></div>'}
+function openSecs(){[].forEach.call(document.querySelectorAll("#sheet .acc"),function(g){g.classList.add("open");var b=g.querySelector(".acch");if(b)b.setAttribute("aria-expanded","true")})}
+function secSums(){var w=$("as_what");if(!w)return;var pre=$("pt")?"p":"e",g=function(i){return $(i)?String($(i).value||"").trim():""};
+ var t=g(pre+"t"),pl=g(pre+"w"),dayId=pre==="p"?"pd":"ed2",fr=pre==="p"?"pf":"ef",un=pre==="p"?"pe":"ee";
+ w.textContent=[t,pl].filter(Boolean).join(" \u00B7 ");
+ var dd=parseDate(g(dayId)),ft=parseTime(g(fr)),ut=g(un)?parseTime(g(un)):null,wn=$("as_when");
+ if(wn)wn.textContent=(dd&&ft)?dayLabel(new Date(dd+"T"+ft))+", "+tm(new Date(dd+"T"+ft))+(ut?"\u2013"+tm(new Date(dd+"T"+ut)):""):"";
+ var sn=$("as_share");if(sn)sn.textContent=[].map.call(document.querySelectorAll("#sheet [data-pc]:checked"),function(x){var sp=x.parentNode.querySelector("span");return sp?sp.textContent:""}).filter(Boolean).join(", ")}
+document.addEventListener("input",secSums);document.addEventListener("change",secSums);
 function planSheet(){
  var ap=approved();
- setSheet('<h2>Share an activity</h2><label for="pk">Type</label><select id="pk"><option value="dropin">Pop round (no reply needed)</option><option value="party">RSVP</option></select><p class="hint">Pop round: friends turn up if they\'re free, no reply needed. It also works for letting family know about an appointment or a trip. RSVP: friends reply Going or Maybe so you know numbers.</p>'
- +(copyOK?'<label id="pcopy_l" style="display:flex;align-items:center;gap:10px;font-weight:600;margin:6px 0"><input type="checkbox" id="pcopy" checked style="width:22px;height:22px;flex:none"><span>Let people in my circles copy this</span></label><p class="hint" id="pcopy_h" style="margin-top:0">Pop round only. They can copy it into their own circles and become the organiser of their copy. You are not shown or told. An activity hidden from anyone cannot be copied.</p>':'')
- +whoBoxes()
+ var what='<label for="pk">Type</label><select id="pk"><option value="dropin">Pop round (no reply needed)</option><option value="party">RSVP</option></select><p class="hint">Pop round: friends turn up if they\'re free, no reply needed. It also works for letting family know about an appointment or a trip. RSVP: friends reply Going or Maybe so you know numbers.</p>'
  +'<label for="pt">What\'s the activity?</label><input id="pt" placeholder="Playground, dentist, school play">'
  +locBox("p","","","Meeting spot or address")
- +'<div class="two"><div><label>From (24 hour)</label>'+timeSel("pf",qtr(new Date()),false)+'</div><div><label>Until (optional)</label>'+timeSel("pe","",true)+'</div></div>'
+ +whoBoxes()
+ +'<details style="margin-top:12px"><summary style="font-weight:600;cursor:pointer">Hide from specific people (optional)</summary><p class="hint">They will not see this activity or who replied. They are not told. People you always hide are ticked already.</p><div id="hidelist" class="card" style="padding:6px 12px;margin-top:8px"><p class="hint">Loading...</p></div></details>';
+ var when='<div class="two"><div><label>From (24 hour)</label>'+timeSel("pf",qtr(new Date()),false)+'</div><div><label>Until (optional)</label>'+timeSel("pe","",true)+'</div></div>'
  +'<label for="pd">Day</label><input id="pd" type="text" inputmode="text" autocomplete="off" placeholder="e.g. 12 Oct, 12/10 or tomorrow" value="'+fmtDate(todayStr())+'"><input type="date" id="pd_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none"><div style="display:flex;gap:6px;margin:8px 0"><button type="button" class="b sm" data-a="cal" data-t="pd">Calendar</button><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="0" data-keep="1">Today</button><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="1" data-keep="1">Tomorrow</button></div>'
- +'<p class="hint" id="pend"></p><label>Share with</label><p class="hint" style="margin-top:0">Tick one or more circles. Only people in those circles will see it, and they get an alert. Someone in several of them sees it once.</p><div class="card" style="padding:6px 12px" id="pcs">'+sortedCircles().map(function(c,i){var on=sel!=="all"?c.circle_id===sel:i===0;return '<label style="display:flex;align-items:center;gap:10px;margin:6px 0;font-weight:600"><input type="checkbox" style="width:22px;height:22px;flex:none" data-pc="'+esc(c.circle_id)+'"'+(on?' checked':'')+'><span>'+esc(cname(c.circle_id,c.circles.name))+'</span></label>'}).join("")+'</div>'
- +'<div id="cwarn" data-base="" style="display:none;border:2px solid #E8B923;border-radius:12px;padding:10px 12px;margin:10px 0;font-size:14px"></div>'
- +'<details style="margin-top:12px"><summary style="font-weight:600;cursor:pointer">Hide from specific people (optional)</summary><p class="hint">They will not see this activity or who replied. They are not told. People you always hide are ticked already.</p><div id="hidelist" class="card" style="padding:6px 12px;margin-top:8px"><p class="hint">Loading...</p></div></details>'
+ +'<p class="hint" id="pend"></p><div id="cwarn" data-base="" style="display:none;border:2px solid #E8B923;border-radius:12px;padding:10px 12px;margin:10px 0;font-size:14px"></div>';
+ var share='<p class="hint" style="margin-top:0">Tick one or more circles. Only people in those circles will see it, and they get an alert. Someone in several of them sees it once.</p><div class="card" style="padding:6px 12px" id="pcs">'+sortedCircles().map(function(c,i){var on=sel!=="all"?c.circle_id===sel:i===0;return '<label style="display:flex;align-items:center;gap:10px;margin:6px 0;font-weight:600"><input type="checkbox" style="width:22px;height:22px;flex:none" data-pc="'+esc(c.circle_id)+'"'+(on?' checked':'')+'><span>'+esc(cname(c.circle_id,c.circles.name))+'</span></label>'}).join("")+'</div>'
+ +(copyOK?'<label id="pcopy_l" style="display:flex;align-items:center;gap:10px;font-weight:600;margin:12px 0 6px"><input type="checkbox" id="pcopy" checked style="width:22px;height:22px;flex:none"><span>Let people in my circles copy this</span></label><p class="hint" id="pcopy_h" style="margin-top:0">Pop round only. They can copy it into their own circles and become the organiser of their copy. You are not shown or told. An activity hidden from anyone cannot be copied.</p>':'');
+ setSheet('<h2>Share an activity</h2>'+fsec("what","What, where and who",what,true)+fsec("when","Date and time",when,false)+fsec("share","Share with",share,false)
  +'<label for="pn">Note (optional)</label><textarea id="pn" rows="2" maxlength="140" placeholder="Come if you\'re free!"></textarea><div class="cc" id="pn_c">0 / 140</div><div class="err" id="pe2"></div>'
  +'<button class="big" data-a="sendplan">Send</button><button class="link" data-a="close">Cancel</button>');
  endHint();
@@ -650,15 +661,17 @@ function editSheet(pid){
  var t12=function(d){var h=d.getHours(),m=d.getMinutes();return (h%12||12)+(m?":"+pad(m):":00")+(h<12?" am":" pm")};
  var iso=s.getFullYear()+"-"+pad(s.getMonth()+1)+"-"+pad(s.getDate());
  var curC=pcs[pid]||[p.circle_id],listC=sortedCircles(),listIds=listC.map(function(c){return c.circle_id}),apIds=approved().map(function(c){return c.circle_id}),baseHid=curC.filter(function(x){return listIds.indexOf(x)<0&&apIds.indexOf(x)>-1});
- setSheet('<h2>Edit activity</h2><p class="hint">Everyone in the circle sees an Updated badge and gets a notice.</p>'
- +'<label for="et">What\'s the activity?</label><input id="et" value="'+esc(p.title)+'">'
+var what='<label for="et">What\'s the activity?</label><input id="et" value="'+esc(p.title)+'">'
  +locBox("e",p.place_name,p.place_url,"")
- +'<div class="two"><div><label>From (24 hour)</label>'+timeSel("ef",pad(s.getHours())+":"+pad(s.getMinutes()),false)+'</div><div><label>Until (optional)</label>'+timeSel("ee",p.open_ended?"":pad(e.getHours())+":"+pad(e.getMinutes()),true)+'</div></div>'
+ +whoBoxes((p.who_names||(p.child&&p.child.first_name)||"").split(", "))
+ +'<details style="margin-top:12px"><summary style="font-weight:600;cursor:pointer">Hide from specific people (optional)</summary><p class="hint">They will not see this activity or who replied. They are not told.</p><div id="hidelist" class="card" style="padding:6px 12px;margin-top:8px"><p class="hint">Loading...</p></div></details>';
+ var when='<div class="two"><div><label>From (24 hour)</label>'+timeSel("ef",pad(s.getHours())+":"+pad(s.getMinutes()),false)+'</div><div><label>Until (optional)</label>'+timeSel("ee",p.open_ended?"":pad(e.getHours())+":"+pad(e.getMinutes()),true)+'</div></div>'
  +'<label for="ed2">Day</label><input id="ed2" type="text" autocomplete="off" placeholder="e.g. 12 Oct, 12/10 or tomorrow" value="'+fmtDate(iso)+'">'
  +'<input type="date" id="ed2_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none"><div style="display:flex;gap:6px;margin:8px 0"><button type="button" class="b sm" data-a="cal" data-t="ed2">Calendar</button><button type="button" class="b sm" data-a="qd" data-t="ed2" data-n="0" data-keep="1">Today</button><button type="button" class="b sm" data-a="qd" data-t="ed2" data-n="1" data-keep="1">Tomorrow</button></div>'
- +'<p class="hint" id="eend"></p><div id="cwarn" data-base="'+esc(baseHid.join(","))+'" style="display:none;border:2px solid #E8B923;border-radius:12px;padding:10px 12px;margin:10px 0;font-size:14px"></div>'+whoBoxes((p.who_names||(p.child&&p.child.first_name)||"").split(", "))+'<details style="margin-top:12px"><summary style="font-weight:600;cursor:pointer">Hide from specific people (optional)</summary><p class="hint">They will not see this activity or who replied. They are not told.</p><div id="hidelist" class="card" style="padding:6px 12px;margin-top:8px"><p class="hint">Loading...</p></div></details>'
- +'<label>Share with</label><p class="hint" style="margin-top:0">Tick the circles that should see this activity. Tick a new circle to add it, and its people get an alert. Untick a circle to take the activity away from it: people who are only in that circle stop seeing it, their replies are removed, and they are not told. At least one circle has to stay ticked.</p><div class="card" style="padding:6px 12px">'+listC.map(function(c){return '<label style="display:flex;align-items:center;gap:10px;margin:6px 0;font-weight:600"><input type="checkbox" style="width:22px;height:22px;flex:none" data-pc="'+esc(c.circle_id)+'"'+(curC.indexOf(c.circle_id)>-1?' checked':'')+'><span>'+esc(cname(c.circle_id,c.circles.name))+'</span></label>'}).join("")+'</div>'
- +((copyOK&&p.kind==="dropin"&&!copyOf[p.id]&&typeof p.allow_copy==="boolean")?'<label style="display:flex;align-items:center;gap:10px;font-weight:600;margin:12px 0 2px"><input type="checkbox" id="ecopy" style="width:22px;height:22px;flex:none"'+(p.allow_copy?' checked':'')+'><span>Let people in my circles copy this</span></label><p class="hint" style="margin-top:0">They become the organiser of their own copy. You are not shown or told. Not possible if the activity is hidden from anyone.</p>':'')
+ +'<p class="hint" id="eend"></p><div id="cwarn" data-base="'+esc(baseHid.join(","))+'" style="display:none;border:2px solid #E8B923;border-radius:12px;padding:10px 12px;margin:10px 0;font-size:14px"></div>';
+ var share='<p class="hint" style="margin-top:0">Tick the circles that should see this activity. Tick a new circle to add it, and its people get an alert. Untick a circle to take the activity away from it: people who are only in that circle stop seeing it, their replies are removed, and they are not told. At least one circle has to stay ticked.</p><div class="card" style="padding:6px 12px">'+listC.map(function(c){return '<label style="display:flex;align-items:center;gap:10px;margin:6px 0;font-weight:600"><input type="checkbox" style="width:22px;height:22px;flex:none" data-pc="'+esc(c.circle_id)+'"'+(curC.indexOf(c.circle_id)>-1?' checked':'')+'><span>'+esc(cname(c.circle_id,c.circles.name))+'</span></label>'}).join("")+'</div>'
+ +((copyOK&&p.kind==="dropin"&&!copyOf[p.id]&&typeof p.allow_copy==="boolean")?'<label style="display:flex;align-items:center;gap:10px;font-weight:600;margin:12px 0 2px"><input type="checkbox" id="ecopy" style="width:22px;height:22px;flex:none"'+(p.allow_copy?' checked':'')+'><span>Let people in my circles copy this</span></label><p class="hint" style="margin-top:0">They become the organiser of their own copy. You are not shown or told. Not possible if the activity is hidden from anyone.</p>':'');
+ setSheet('<h2>Edit activity</h2><p class="hint">Everyone in the circle sees an Updated badge and gets a notice.</p>'+fsec("what","What, where and who",what,false)+fsec("when","Date and time",when,false)+fsec("share","Share with",share,false)
  +'<label for="en">Note (optional)</label><textarea id="en" rows="2" maxlength="140">'+esc((p.note||"").slice(0,140))+'</textarea><div class="cc" id="en_c">'+Math.min(140,(p.note||"").length)+' / 140</div><div class="err" id="ee2"></div>'
  +'<button class="big" data-a="saveplan" data-p="'+esc(pid)+'">Save and notify</button><button class="link" data-a="close">Cancel</button>');
  endHint();fillHideList(pcOf(p),planHides);
@@ -817,7 +830,7 @@ function draw(){
 function warnedOnce(){try{return localStorage.getItem("popround_approve_warned")==="1"}catch(e){return false}}
 function setWarned(){try{localStorage.setItem("popround_approve_warned","1")}catch(e){}}
 async function act(b){
- var a=b.dataset.a,v=function(i){return $(i)&&$(i).value.trim()},E=function(id,m){if($(id))$(id).textContent=m};
+ var a=b.dataset.a,v=function(i){return $(i)&&$(i).value.trim()},E=function(id,m){if($(id)){$(id).textContent=m;if(m&&(id==="pe2"||id==="ee2"))openSecs()}};
  try{
  if(a==="close")setSheet("");
  else if(a==="authmode")authView(b.dataset.m);

@@ -356,7 +356,7 @@ if(r[13]&&r[13].error){try{r[13]=await sb.from("sponsors").select("id,name,headl
  nicks={};(r[6].data||[]).forEach(function(n){nicks[n.circle_id]=n.nickname});
  if(sel!=="all"&&!approved().some(function(c){return c.circle_id===sel}))sel="all";
  if(toastFor){var p=plans.find(function(x){return x.id===toastFor});if(p)toast(toastKind+": "+hostName(p)+" · "+p.title+", "+tm(new Date(p.starts_at))+"–"+tm(new Date(p.ends_at)));toastFor=null;toastKind="New"}
- draw();removedNotice();
+ draw();removedNotice();calCheck();
 }
 function removedNotice(){
  if(!me||recovering||$("sheet").innerHTML)return;
@@ -379,6 +379,24 @@ async function loadRoster(cid){var r=await sb.rpc("circle_roster",{p_circle:cid}
 function setupSheet(){
  setSheet('<h2>Welcome to PopRound</h2><p class="hint">Only people in circles you join will see this. Your name stays private by default: only people in circles you organise, and the organisers of circles you join, can see it. You can change this in Settings.</p><label for="sn">Your username (shown to people in your circles)</label><input id="sn" placeholder="Priya S."><label for="sk">Who usually comes along? First names, comma separated</label><input id="sk" placeholder="Aarav, Mia"><p class="hint">Just you? Add your own first name. You can add more people later in Settings.</p><div class="err" id="se"></div><button class="big" data-a="saveme">Continue</button>');
 }
+function calGet(){try{return JSON.parse(localStorage.getItem("pr_cal")||"{}")||{}}catch(e){return {}}}
+function calPut(o){try{var ks=Object.keys(o);if(ks.length>60){ks.sort(function(a,b){return (o[a].s||"")<(o[b].s||"")?-1:1}).slice(0,ks.length-60).forEach(function(k){delete o[k]})}localStorage.setItem("pr_cal",JSON.stringify(o))}catch(e){}}
+function calNote(p){var o=calGet();o[p.id]={t:p.title,s:p.starts_at,e:p.ends_at,p:p.place_name||""};calPut(o)}
+function calCheck(){
+ if(!me||recovering||$("sheet").innerHTML)return;
+ var o=calGet(),ids=Object.keys(o);if(!ids.length)return;
+ var day0=new Date(),msgs=[],dirty=false;day0.setHours(0,0,0,0);
+ ids.forEach(function(id){var c=o[id],pl=plans.find(function(x){return x.id===id});
+  if(new Date(c.e)<day0){delete o[id];dirty=true;return}
+  if(!pl){msgs.push("\u201C"+esc(c.t)+"\u201D was deleted, or is no longer shared with you. Remove it from your calendar.");delete o[id];dirty=true;return}
+  if(pl.cancelled_at){msgs.push("\u201C"+esc(c.t)+"\u201D was cancelled. Remove it from your calendar.");delete o[id];dirty=true;return}
+  if(new Date(pl.starts_at).getTime()!==new Date(c.s).getTime()||new Date(pl.ends_at).getTime()!==new Date(c.e).getTime()||(pl.place_name||"")!==(c.p||"")){
+   var d=new Date(pl.starts_at),e=new Date(pl.ends_at);
+   msgs.push("\u201C"+esc(pl.title)+"\u201D has changed. It is now "+esc(dayLabel(d))+", "+esc(tm(d))+"\u2013"+esc(tm(e))+(pl.place_name?" at "+esc(pl.place_name):"")+". Update your calendar, or tap Add to my calendar again.");
+   o[id]={t:pl.title,s:pl.starts_at,e:pl.ends_at,p:pl.place_name||""};dirty=true}});
+ if(dirty)calPut(o);
+ if(!msgs.length)return;
+ setSheet("<h2>Check your calendar</h2><p class=\"hint\">PopRound cannot change your phone\u2019s calendar for you. Something you added has changed:</p>"+msgs.map(function(m){return "<div class=\"card\" style=\"padding:10px 14px\">"+m+"</div>"}).join("")+"<button class=\"big\" data-a=\"close\">Got it</button>")}
 function icsEsc(t){return String(t||"").replace(/\\/g,"\\\\").replace(/;/g,"\\;").replace(/,/g,"\\,").replace(/\r?\n/g,"\\n")}
 function icsFold(l){var o=[];while(l.length>73){o.push(l.slice(0,73));l=" "+l.slice(73)}o.push(l);return o.join("\r\n")}
 function icsDate(d){return new Date(d).toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"")}
@@ -390,8 +408,8 @@ function icsFor(p){var desc=(p.note?p.note+"\n\n":"")+(p.place_url&&mapOk(p.plac
 async function addToCal(pid){var p=plans.find(function(x){return x.id===pid});if(!p)return;
  var txt=icsFor(p),nm=String(p.title||"activity").replace(/[^\w\- ]+/g,"").trim().slice(0,40)||"activity",file=null;
  try{file=new File([txt],nm+".ics",{type:"text/calendar"})}catch(e1){}
- try{if(file&&navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:p.title});return}}catch(e2){if(e2&&e2.name==="AbortError")return}
- try{var url=URL.createObjectURL(new Blob([txt],{type:"text/calendar"})),a=document.createElement("a");a.href=url;a.download=nm+".ics";document.body.appendChild(a);a.click();setTimeout(function(){a.remove();URL.revokeObjectURL(url)},3000);toast("Calendar file saved. Open it to add it to your calendar.")}catch(e3){toast("Sorry, this phone would not make the calendar file.")}}
+ try{if(file&&navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:p.title});calNote(p);return}}catch(e2){if(e2&&e2.name==="AbortError")return}
+ try{var url=URL.createObjectURL(new Blob([txt],{type:"text/calendar"})),a=document.createElement("a");a.href=url;a.download=nm+".ics";document.body.appendChild(a);a.click();calNote(p);setTimeout(function(){a.remove();URL.revokeObjectURL(url)},3000);toast("Calendar file saved. Open it to add it to your calendar.")}catch(e3){toast("Sorry, this phone would not make the calendar file.")}}
 function hostName(p){var n=p.host&&p.host.display_name;if(n)return n;var c=pcOf(p)[0],m=circles.find(function(x){return x.circle_id===c});return "A member"+(m&&m.circles?" of "+cname(c,m.circles.name):"")}
 function pcOf(p){var ids=approved().map(function(c){return c.circle_id});return (pcs[p.id]||[p.circle_id]).filter(function(c){return ids.indexOf(c)>-1})}
 function inSel(p){var l=pcOf(p);return l.length>0&&(sel==="all"||l.indexOf(sel)>-1)}

@@ -222,7 +222,7 @@ function endWarn(cids,dd){
   +' You can still send it, change the day, or extend the end date in the circle\'s settings (organisers only).</div>'}
 function circleWarn(dd){var el=$("cwarn");if(!el)return;var base=(el.dataset.base||"").split(",").filter(Boolean);
  var ids=base.concat(pickedCircles().filter(function(x){return base.indexOf(x)<0}));var w=endWarn(ids,dd);el.innerHTML=w;el.style.display=w?"":"none"}
-document.addEventListener("change",function(e){if(e.target&&e.target.dataset&&e.target.dataset.pc!==undefined)endHint();if(e.target&&e.target.id==="pk"){var sh=e.target.value==="dropin"?"":"none";["pcopy_l","pcopy_h"].forEach(function(i){if($(i))$(i).style.display=sh})}});
+document.addEventListener("change",function(e){if(e.target&&e.target.dataset&&e.target.dataset.pc!==undefined)endHint();if(e.target&&e.target.id==="pk"){var sh=e.target.value==="dropin"?"":"none";["pcopy_l","pcopy_h"].forEach(function(i){if($(i))$(i).style.display=sh});if($("ppay_w"))$("ppay_w").style.display=e.target.value==="party"?"":"none"}});
 document.addEventListener("input",function(e){var t=e.target;if(t&&t.id==="hq"){var q=nrm(t.value);[].forEach.call(document.querySelectorAll("#sheet [data-nm]"),function(r){r.style.display=!q||r.dataset.nm.indexOf(q)>-1?"":"none"});[].forEach.call(document.querySelectorAll("#sheet .acc"),function(g){var b=g.querySelector(".acch");if(!b||!/^hc_/.test(b.dataset.k||""))return;var vis=[].filter.call(g.querySelectorAll("[data-nm]"),function(r){return r.style.display!=="none"}).length;g.style.display=(vis||!q)?"":"none";if(q&&vis){g.classList.add("open");profOpen[b.dataset.k]=true}})}});
 document.addEventListener("input",function(e){if(e.target&&/^(pf|pe|pd|ef|ee|ed2)$/.test(e.target.id))endHint();if(e.target&&/^(pn|en|dn)$/.test(e.target.id)){var cc=$(e.target.id+"_c");if(cc)cc.textContent=e.target.value.length+" / 140"}if(e.target&&/^(cd|cdesc)$/.test(e.target.id)){var cd2=$(e.target.id+"_c");if(cd2)cd2.textContent=e.target.value.length+" / 60"}});
 function parseTime(t){t=(t||"").toLowerCase().replace(/\./g,"").trim();var m=t.match(/^(\d{1,2})(?:[:\s]?(\d{2}))?\s*(am|pm|a|p)?$/);if(!m)return null;var h=+m[1],mi=m[2]?+m[2]:0,ap=m[3];if(mi>59)return null;
@@ -323,6 +323,10 @@ async function start(){
    clearTimeout(timer);timer=setTimeout(load,400)}).subscribe();
  }
 }
+var payOK=false,paidMap={};
+function needsPay(p){return !!(payOK&&p&&p.kind==="party"&&p.payment_needed)}
+function isPaid(pid,par){return !!paidMap[pid+"|"+par]}
+function payNums(pid){var n=0;Object.keys(paidMap).forEach(function(k){if(k.indexOf(pid+"|")===0&&paidMap[k])n++});var c=counts[pid]||{},rs=replies.filter(function(r){return r.plan_id===pid&&r.status==="going"}).length,g=Math.max(c.going||0,rs);return {paid:n,unpaid:Math.max(0,g-n)}}
 async function load(){
  var start=new Date();start.setHours(0,0,0,0);
  var r=await Promise.all([
@@ -340,10 +344,10 @@ async function load(){
   sb.from("profiles_private").select("first_name,last_name").eq("parent_id",uid).maybeSingle(),
   sb.from("plan_circles").select("plan_id,circle_id"),
   sb.from("sponsors").select("id,name,headline,body,link_url,image_url,emoji,target_areas,target_countries"),
-  sb.from("plan_who").select("plan_id,names"),sb.rpc("my_plan_copies"),sb.from("plan_reply_who").select("plan_id,parent_id,names,head"),sb.rpc("reply_extra"),sb.rpc("reply_heads"),sb.from("plans").select("place_url").limit(1)]);
+  sb.from("plan_who").select("plan_id,names"),sb.rpc("my_plan_copies"),sb.from("plan_reply_who").select("plan_id,parent_id,names,head"),sb.rpc("reply_extra"),sb.rpc("reply_heads"),sb.from("plans").select("place_url").limit(1),sb.from("plans").select("payment_needed").limit(1),sb.rpc("reply_paid")]);
  if(r[2]&&r[2].error&&/area/i.test(r[2].error.message||"")){r[2]=await sb.from("circle_members").select("circle_id,role,status,show_names,circles!circle_id(name,invite_code,ends_on,color,emoji,created_by,description)").eq("parent_id",uid)}
  if(r[2]&&r[2].error&&/description/i.test(r[2].error.message||"")){r[2]=await sb.from("circle_members").select("circle_id,role,status,show_names,circles!circle_id(name,invite_code,ends_on,color,emoji,created_by)").eq("parent_id",uid)}
- var bad=r.find(function(x,i){return x.error&&i!==11&&i!==12&&i!==13&&i!==14&&i!==15&&i!==16&&i!==17&&i!==18&&i!==19});profPriv=(r[11]&&r[11].data)||{};whoOK=!!(r[16]&&!r[16].error&&r[17]&&!r[17].error);placeOK=!!(r[19]&&!r[19].error);replyWho={};extraN={};headN={};((r[18]&&!r[18].error&&r[18].data)||[]).forEach(function(x){headN[x.plan_id+"|"+x.parent_id]=x.head});if(whoOK){(r[16].data||[]).forEach(function(x){replyWho[x.plan_id+"|"+x.parent_id]=x});(r[17].data||[]).forEach(function(x){(extraN[x.plan_id]=extraN[x.plan_id]||{})[x.status]=x.n})}copyOK=!!(r[15]&&!r[15].error);copyOf={};((r[15]&&r[15].data)||[]).forEach(function(x){copyOf[x.plan_id]=x.original_id});if(bad){toast("Couldn't load: "+bad.error.message)}
+ var bad=r.find(function(x,i){return x.error&&i!==11&&i!==12&&i!==13&&i!==14&&i!==15&&i!==16&&i!==17&&i!==18&&i!==19&&i!==20&&i!==21});profPriv=(r[11]&&r[11].data)||{};whoOK=!!(r[16]&&!r[16].error&&r[17]&&!r[17].error);placeOK=!!(r[19]&&!r[19].error);payOK=!!(r[20]&&!r[20].error&&r[21]&&!r[21].error);paidMap={};if(payOK)(r[21].data||[]).forEach(function(x){paidMap[x.plan_id+"|"+x.parent_id]=x.paid});replyWho={};extraN={};headN={};((r[18]&&!r[18].error&&r[18].data)||[]).forEach(function(x){headN[x.plan_id+"|"+x.parent_id]=x.head});if(whoOK){(r[16].data||[]).forEach(function(x){replyWho[x.plan_id+"|"+x.parent_id]=x});(r[17].data||[]).forEach(function(x){(extraN[x.plan_id]=extraN[x.plan_id]||{})[x.status]=x.n})}copyOK=!!(r[15]&&!r[15].error);copyOf={};((r[15]&&r[15].data)||[]).forEach(function(x){copyOf[x.plan_id]=x.original_id});if(bad){toast("Couldn't load: "+bad.error.message)}
  me=r[0].data;kids=r[1].data||[];circles=r[2].data||[];plans=r[3].data||[];
  var whoMap={};(r[14]&&r[14].data||[]).forEach(function(x){whoMap[x.plan_id]=x.names});plans.forEach(function(p){if(whoMap[p.id])p.who_names=whoMap[p.id]});replies=r[4].data||[];pending=r[5].data||[];
  pcs={};(r[12]&&r[12].data||[]).forEach(function(x){(pcs[x.plan_id]=pcs[x.plan_id]||[]).push(x.circle_id)});
@@ -435,6 +439,7 @@ document.addEventListener("input",secSums);document.addEventListener("change",se
 function planSheet(){
  var ap=approved();
  var what='<label for="pk">Type</label><select id="pk"><option value="dropin">Pop round (no reply needed)</option><option value="party">RSVP</option></select><p class="hint">Pop round: friends turn up if they\'re free, no reply needed. It also works for letting family know about an appointment or a trip. RSVP: friends reply Going or Maybe so you know numbers.</p>'
+ +(payOK?'<div id="ppay_w" style="display:none"><label style="display:flex;align-items:center;gap:10px;font-weight:600;margin:4px 0 2px"><input type="checkbox" id="ppay" style="width:22px;height:22px;flex:none"><span>This activity needs payment</span></label><p class="hint" style="margin-top:0">People who say Going can tick whether they have paid, and you see who has and who has not. PopRound does not take any money. You arrange payment yourselves.</p></div>':'')
  +'<label for="pt">What\'s the activity?</label><input id="pt" placeholder="Playground, dentist, school play">'
  +locBox("p","","","Meeting spot or address")
  +whoBoxes()
@@ -606,6 +611,7 @@ function replySheet(pid,msg){
  setSheet(backBtn("close")+'<h2>Your reply</h2><div class="card"><b>'+esc(p.title)+'</b><div class="where">'+esc(dayLabel(s0))+', '+tm(s0)+' \u00b7 '+esc(p.place_name)+'</div></div>'
   +'<p class="hint" style="margin-top:12px">Change your mind any time. The host sees the update.'+(whoOK&&kids.length&&my?' Tap Going or Maybe to change who is coming.':'')+'</p>'
   +'<div style="display:grid;gap:8px;margin-top:8px"><button class="b'+(my==="maybe"?' on':'')+'" data-a="setreply" data-s="maybe" data-p="'+esc(pid)+'">'+(party?"Maybe":"I might pop by")+'</button><button class="b'+(my==="going"?' on':'')+'" data-a="setreply" data-s="going" data-p="'+esc(pid)+'">'+(party?"Going":"See you there")+'</button></div>'
+  +((my==="going"&&needsPay(p))?'<h2 style="font-size:18px;margin-top:18px">Payment</h2><p class="hint">The organiser is asking for payment. PopRound does not take any money: pay them the way they asked, then tick here so they know. Only they can see this.</p><div style="display:grid;gap:8px"><button class="b'+(isPaid(pid,uid)?' on':'')+'" data-a="setpaid" data-p="'+esc(pid)+'" data-v="1">'+(isPaid(pid,uid)?'\u2713 ':'')+'I have paid</button><button class="b'+(!isPaid(pid,uid)?' on':'')+'" data-a="setpaid" data-p="'+esc(pid)+'" data-v="0">Not paid yet</button></div>':'')
   +(my?'<h2 style="font-size:18px;margin-top:18px">Leave-by alert</h2><p class="hint">'+(fut?'You will get a notification at '+tm(new Date(r))+'.':'No alert set.')+'</p><button class="b sm" data-a="leavesheet" data-p="'+esc(pid)+'">'+(fut?'Change the time':'Set a leave-by alert')+'</button>':'')
   +(my?'<button class="link" style="margin-top:12px" data-a="removereply" data-p="'+esc(pid)+'">Take back my reply</button>':'')
   +'<button class="link" data-a="dismiss" data-p="'+esc(pid)+'">Not for me: hide this activity</button><p class="hint">Hidden activities are kept under Hidden on the home screen, so you can bring them back.</p><div class="err" id="re">'+esc(msg||"")+'</div>');
@@ -680,6 +686,7 @@ function editSheet(pid){
  var iso=s.getFullYear()+"-"+pad(s.getMonth()+1)+"-"+pad(s.getDate());
  var curC=pcs[pid]||[p.circle_id],listC=sortedCircles(),listIds=listC.map(function(c){return c.circle_id}),apIds=approved().map(function(c){return c.circle_id}),baseHid=curC.filter(function(x){return listIds.indexOf(x)<0&&apIds.indexOf(x)>-1});
 var what='<label for="et">What\'s the activity?</label><input id="et" value="'+esc(p.title)+'">'
+ +((payOK&&p.kind==="party")?'<label style="display:flex;align-items:center;gap:10px;font-weight:600;margin:12px 0 2px"><input type="checkbox" id="epay" style="width:22px;height:22px;flex:none"'+(p.payment_needed?' checked':'')+'><span>This activity needs payment</span></label><p class="hint" style="margin-top:0">People who say Going can tick whether they have paid, and you see who has and who has not. PopRound does not take any money.</p>':'')
  +locBox("e",p.place_name,p.place_url,"")
  +whoBoxes((p.who_names||(p.child&&p.child.first_name)||"").split(", "))
  +'<details style="margin-top:12px"><summary style="font-weight:600;cursor:pointer">Hide from specific people (optional)</summary><p class="hint">They will not see this activity or who replied. They are not told.</p><div id="hidelist" class="card" style="padding:6px 12px;margin-top:8px"><p class="hint">Loading...</p></div></details>';
@@ -775,10 +782,11 @@ function whoSheet(pid,st){
  var p=plans.find(function(x){return x.id===pid});if(!p)return;
  var rs=replies.filter(function(r){return r.plan_id===pid&&r.status===st}),hn=(st==="going"&&!p.cancelled_at)?1:0,hshow=hn&&p.host&&p.host.display_name,tot=Math.max(((counts[pid]||{})[st])||0,rs.length)+hn,other=tot-rs.length-(hshow?1:0);
  var lbl=st==="going"?"Going":"Maybe";
- var rows=(hshow?'<div class="req"><b>'+esc(p.host.display_name)+(p.host_id===uid?' <span class="where">(you)</span>':'')+' <span class="where">organiser</span></b></div>':'')+rs.map(function(r){var nm=(r.parents&&r.parents.display_name)||"Someone";var fw=(r.parent_id===uid||p.host_id===uid)?replyWho[pid+"|"+r.parent_id]:null;return '<div class="req"><b>'+esc(nm)+(r.parent_id===uid?' <span class="where">(you)</span>':'')+'</b>'+(hd(pid,r.parent_id)>1?' <span class="where">+'+(hd(pid,r.parent_id)-1)+'</span>':'')+(fw&&fw.head>1?'<span class="where">Coming: '+esc(fw.names)+'</span>':'')+'</div>'}).join("");
+ var rows=(hshow?'<div class="req"><b>'+esc(p.host.display_name)+(p.host_id===uid?' <span class="where">(you)</span>':'')+' <span class="where">organiser</span></b></div>':'')+rs.map(function(r){var nm=(r.parents&&r.parents.display_name)||"Someone";var fw=(r.parent_id===uid||p.host_id===uid)?replyWho[pid+"|"+r.parent_id]:null;var hp=(st==="going"&&p.host_id===uid&&needsPay(p)),pd=isPaid(pid,r.parent_id);return '<div class="req"><b>'+esc(nm)+(r.parent_id===uid?' <span class="where">(you)</span>':'')+'</b>'+(hp?'<button class="b sm'+(pd?' on':'')+'" data-a="hostpaid" data-p="'+esc(pid)+'" data-q="'+esc(r.parent_id)+'" data-v="'+(pd?'0':'1')+'">'+(pd?'\u2713 Paid':'Not paid')+'</button>':'')+(hd(pid,r.parent_id)>1?' <span class="where">+'+(hd(pid,r.parent_id)-1)+'</span>':'')+(fw&&fw.head>1?'<span class="where">Coming: '+esc(fw.names)+'</span>':'')+'</div>'}).join("");
  var note=other>0?'<p class="hint">'+(rs.length||hshow?'+ '+other+' other '+(other===1?'person':'people'):other+(other===1?' person':' people'))+' who chose not to show their name'+(other===1?'':'s')+'.</p>':'';
  var xt=xN(pid,st)-rs.reduce(function(s,r){return s+hd(pid,r.parent_id)-1},0),xnote=xt>0?'<p class="hint">+ '+xt+' more '+(xt===1?'person':'people')+' coming with others.</p>':'';
- setSheet(backBtn("close")+'<h2>'+lbl+' · '+esc(p.title)+'</h2>'+(rows?'<div class="card" style="padding:6px 14px">'+rows+'</div>':'')+note+xnote+(!rows&&!note&&!xnote?'<p class="hint">No one yet.</p>':''));
+ var pn=(st==="going"&&p.host_id===uid&&needsPay(p))?payNums(pid):null,paySum=pn?'<p class="hint"><b>Paid: '+pn.paid+' · Not paid yet: '+pn.unpaid+'</b><br>Tap a button to change it, for example when someone pays you in cash. People are not told.</p>':'';
+ setSheet(backBtn("close")+'<h2>'+lbl+' · '+esc(p.title)+'</h2>'+paySum+(rows?'<div class="card" style="padding:6px 14px">'+rows+'</div>':'')+note+xnote+(!rows&&!note&&!xnote?'<p class="hint">No one yet.</p>':''));
 }
 function replyWhoSheet(pid,st){
  var p=plans.find(function(x){return x.id===pid});if(!p)return;
@@ -816,7 +824,8 @@ function draw(){
   var l1=party?"Maybe":"I might pop by",l2=party?"Going":"See you there";
   var pills=pcOf(p).map(function(c){var m=circles.find(function(x){return x.circle_id===c})||{circles:{}},ci=m.circles,col=ci.color||COLORS[0];return '<span class="cpill" style="background:'+esc(col)+';color:'+inkOn(col)+'">'+esc(ci.emoji||"👋")+' '+esc(cname(c,ci.name))+'</span>'}).join("");
   var statBtn=function(st,lbl,n){return n?'<button class="stat" data-a="whosheet" data-s="'+st+'" data-p="'+esc(p.id)+'">'+lbl+': '+n+'</button>':''};
-  var stats=(ng||nm)?'<div class="stats">'+statBtn("going","Going",ng)+statBtn("maybe","Maybe",nm)+'</div>':'<div class="where" style="margin-top:10px">No replies yet</div>';
+  var payRow=(host&&needsPay(p)&&ng>1)?(function(){var q=payNums(p.id);return '<div class="where" style="margin-top:6px"><b>Paid: '+q.paid+' \u00b7 Not paid yet: '+q.unpaid+'</b></div>'})():(!host&&myR==="going"&&needsPay(p)?'<div class="where" style="margin-top:6px"><b>'+(isPaid(p.id,uid)?'\u2713 You have paid':'Payment needed: not paid yet')+'</b></div>':'');
+  var stats=(ng||nm)?'<div class="stats">'+statBtn("going","Going",ng)+statBtn("maybe","Maybe",nm)+'</div>'+payRow:'<div class="where" style="margin-top:10px">No replies yet</div>';
   var btns=host?(canc?'<div>'+(ended?'':'<button class="b sm" data-a="undocancel" data-p="'+esc(p.id)+'">Undo</button> ')+'<button class="b sm del" data-a="delplan" data-p="'+esc(p.id)+'">Delete</button></div>':'<div><button class="b sm" data-a="editplan" data-p="'+esc(p.id)+'">Edit</button> <button class="b sm del" data-a="delplan" data-p="'+esc(p.id)+'">Delete</button></div>'):((copyOK&&p.kind==="dropin"&&p.allow_copy===true&&!canc&&!ended&&!copyOf[p.id])?'<div><button class="b sm" data-a="dupplan" data-p="'+esc(p.id)+'">Duplicate</button></div>':'');
   var stt=canc?null:(host?"mine":(myR==="going"||myR==="maybe"?myR:null)),stc=stt?(stt==="going"?cols.g:stt==="maybe"?cols.m:cols.h):"";
   var open=cardOpen.hasOwnProperty(p.id)?cardOpen[p.id]:((!host&&!myR&&!ended&&!canc)||hand);
@@ -950,12 +959,14 @@ async function act(b){
   if(whoOK&&kids.length){replyWhoSheet(sp,ss2);return}
   if(cr!==ss2){var sr3=await sb.from("plan_replies").upsert({plan_id:sp,parent_id:uid,status:ss2});if(sr3.error)throw sr3.error;await load()}
   var cl2=cr!==ss2?clashesFor(sp):[];if(cl2.length)clashSheet(sp,cl2);else replySheet(sp,"Updated. The host sees your new reply.")}
+ else if(a==="setpaid"){var pr1=await sb.rpc("set_reply_paid",{p_plan:b.dataset.p,p_paid:b.dataset.v==="1"});if(pr1.error)throw pr1.error;await load();replySheet(b.dataset.p,b.dataset.v==="1"?"Thanks. The organiser can see you have paid.":"Saved: not paid yet.")}
+ else if(a==="hostpaid"){var pr2=await sb.rpc("set_reply_paid",{p_plan:b.dataset.p,p_paid:b.dataset.v==="1",p_parent:b.dataset.q});if(pr2.error)throw pr2.error;await load();whoSheet(b.dataset.p,"going")}
  else if(a==="sendreply"){var rp=b.dataset.p,rs3=b.dataset.s,rw=whoPicked();if(!rw.count){E("rw_e","Tick at least one person who is coming.");return}
   var rcur=(replies.find(function(x){return x.plan_id===rp&&x.parent_id===uid})||{}).status;
   var ru=await sb.from("plan_replies").upsert({plan_id:rp,parent_id:uid,status:rs3});if(ru.error)throw ru.error;
   var rf=await sb.rpc("set_reply_who",{p_plan:rp,p_names:rw.names,p_head:rw.count});if(rf.error)throw rf.error;
   setSheet("");toast(rs3==="going"?"They know you're coming":"They know you might pop by");await load();
-  if(rcur!==rs3){var cl3=clashesFor(rp);if(cl3.length)clashSheet(rp,cl3)}}
+  if(rcur!==rs3){var cl3=clashesFor(rp);if(cl3.length)clashSheet(rp,cl3);else if(rs3==="going"&&needsPay(plans.find(function(x){return x.id===rp})))replySheet(rp)}else if(rs3==="going"&&needsPay(plans.find(function(x){return x.id===rp})))replySheet(rp)}
  else if(a==="removereply"){var rr2=await sb.from("plan_replies").delete().eq("plan_id",b.dataset.p).eq("parent_id",uid);if(rr2.error)throw rr2.error;setSheet("");toast("Reply taken back");await load()}
  else if(a==="profile"){await Promise.all([loadContacts(),loadBlocked(),loadHideRosters()]);profileSheet()}
  else if(a==="profilepage"){profilePage()}
@@ -1071,7 +1082,9 @@ async function act(b){
   if(placeOK)cpa.p_place_url=($("pu")&&$("pu").value)||null;
   if(copyOK&&$("pcopy"))cpa.p_allow_copy=v("pk")==="dropin"&&$("pcopy").checked&&!cpa.p_hide.length;
   var ins=await sb.rpc("create_plan_multi",cpa);
-  if(ins.error)throw ins.error;setSheet("");toast(pcl.length>1?"Sent. Your circles have been notified.":"Sent. Your circle has been notified.");await load()}
+  if(ins.error)throw ins.error;
+  if(payOK&&cpa.p_kind==="party"&&$("ppay")&&$("ppay").checked&&ins.data){var pq=await sb.from("plans").update({payment_needed:true}).eq("id",ins.data);if(pq.error)toast("Sent, but the payment tick-box could not be saved. Tap Edit to try again.")}
+  setSheet("");toast(pcl.length>1?"Sent. Your circles have been notified.":"Sent. Your circle has been notified.");await load()}
  else if(a==="togglecard"){var tp=b.dataset.p,tcur=cardOpen.hasOwnProperty(tp)?cardOpen[tp]:null;if(tcur===null){var tb=b.closest("article");tcur=!!tb&&!!tb.querySelector(".cfoot")}cardOpen[tp]=!tcur;draw()}
  else if(a==="setcol"){if(b.dataset.k==="reset"){cols={g:CD.g,m:CD.m,h:CD.h}}else cols[b.dataset.k]=b.dataset.v;try{localStorage.setItem("pr_cols",JSON.stringify(cols))}catch(e){}draw();profOpen.col=true;profileSheet()}
  else if(a==="quietno"){var qd=new Date();try{localStorage.setItem("pr_quiet",qd.getFullYear()+"-"+pad(qd.getMonth()+1)+"-"+pad(qd.getDate()))}catch(e){}draw()}
@@ -1115,6 +1128,7 @@ async function act(b){
   var sh=await sb.rpc("set_plan_hidden",{p_plan:b.dataset.p,p_hide:hidePicked()});if(sh.error)throw sh.error;
   var upd={title:et,place_name:v("ew")||"Location to be shared",starts_at:s2.toISOString(),ends_at:e2.toISOString(),open_ended:bt2.open,note:v("en")||null,who_names:wq.names,child_id:wq.childId};
   if(placeOK)upd.place_url=($("eu")&&$("eu").value)||null;
+  if($("epay"))upd.payment_needed=$("epay").checked;
   if($("ecopy"))upd.allow_copy=$("ecopy").checked&&!hidePicked().length;
   var up=await sb.from("plans").update(upd).eq("id",b.dataset.p);
   if(up.error)throw up.error;

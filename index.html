@@ -233,7 +233,7 @@ function sentAt(ts){var d=new Date(ts),n=new Date(),t=d.toLocaleTimeString("en-G
 function ago(ts){var m=Math.round((Date.now()-new Date(ts))/60000);if(m<2)return "just now";if(m<60)return m+" min ago";var h=Math.round(m/60);if(h<24)return h+" h ago";return "on "+new Date(ts).toLocaleDateString(undefined,{day:"numeric",month:"short"})}
 function dayLabel(d){return d.toDateString()===new Date().toDateString()?"Today":d.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})}
 
-var COLORS=["#4361EE","#E4584A","#2EC4B6","#FFC83D","#7B2CBF","#FF8FAB","#1F8A5F","#F77F00"],EMOJIS=["⚽","🏀","🎂","🎈","🏫","🎒","🌳","🛝","🏠","🎨","🎵","🐶","🚲","🏊","🍕","🌈","⭐","🧸","🍎","🐢","👋","🌻","🚀","🎮"];
+var COLORS=["#4361EE","#E4584A","#2EC4B6","#FFC83D","#7B2CBF","#FF8FAB","#1F8A5F","#F77F00"],EMOJIS=["⚽","🏀","🎂","🎈","🏫","🎒","🌳","🛝","🏠","🎨","🎵","🐶","🚲","🏊","🍕","🌈","⭐","⛳","🍎","⛺","👋","🌻","🔥","🎮"];
 var stars={},pickN={color:COLORS[0],emoji:"👋"},pickE={color:COLORS[0],emoji:"👋"},planHides=[];
 var sb,uid=null,me=null,kids=[],blocked=[],dismissed=[],safeT=null,circles=[],plans=[],replies=[],pending=[],copyOf={},copyOK=false,replyWho={},extraN={},whoOK=false,headN={},placeOK=false,sel="all",subscribed=false,recovering=/[#&]type=recovery/.test(location.hash||""),recShown=false,linkErr=/[#&]error(_code)?=/.test(location.hash||""),toastFor=null,toastKind="New",timer=null,goneShown=false,rmShown={};
 var SW=["#1F8A5F","#E8A400","#3B6FE0","#E4584A","#8A3FC0","#E0457B","#0E8F8F","#F08A24","#6C8FB8"],CD={g:"#1F8A5F",m:"#E8A400",h:"#3B6FE0"};

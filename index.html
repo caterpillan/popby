@@ -196,9 +196,15 @@ function timeSel(id,hhmm,opt){var h=hhmm?hhmm.slice(0,2):"",m=hhmm?hhmm.slice(3,
  return '<div class="tsel"><select data-ts="'+id+'" data-tp="h" aria-label="Hour (24 hour)">'+ho+'</select><b>:</b><select data-ts="'+id+'" data-tp="m" aria-label="Minutes">'+mo.map(function(x){return '<option value="'+x+'"'+(x===m?' selected':'')+'>'+x+'</option>'}).join("")+'</select><input type="hidden" id="'+id+'" value="'+(hhmm||"")+'"></div>'}
 function qtr(d){var t=new Date(d.getTime());t.setSeconds(0,0);var m=t.getMinutes(),r=Math.ceil(m/15)*15;t.setMinutes(r);return pad(t.getHours())+":"+pad(t.getMinutes())}
 document.addEventListener("change",function(e){var t=e.target;if(!t||!t.dataset||!t.dataset.ts)return;var id=t.dataset.ts,hs=document.querySelector('#sheet [data-ts="'+id+'"][data-tp="h"]'),ms=document.querySelector('#sheet [data-ts="'+id+'"][data-tp="m"]'),hid=$(id);if(!hs||!ms||!hid)return;hid.value=hs.value===""?"":hs.value+":"+ms.value;unflash();endHint()});
-function buildTimes(dd,ft,ut){
+function lastDay(id){var x=$(id);if(!x||!(x.value||"").trim())return "";var d=parseDate(x.value);return d||null}
+function multiDay(s,e){var a=new Date(s.getFullYear(),s.getMonth(),s.getDate()),b=new Date(e.getFullYear(),e.getMonth(),e.getDate()),n=Math.round((b-a)/864e5);return n>=2||(n===1&&e.getHours()>=6)}
+function whenText(p,s,e){if(!p.open_ended&&multiDay(s,e)){var f=function(d){return d.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})};return f(s)+", "+tm(s)+" to "+f(e)+", "+tm(e)}return dayLabel(s)+", "+(p.open_ended?"from "+tm(s):tm(s)+"\u2013"+tm(e)+(e.toDateString()!==s.toDateString()?" ("+e.toLocaleDateString(undefined,{weekday:"short"})+")":""))}
+function buildTimes(dd,ft,ut,ld){
  var tf=parseTime(ft);if(!tf)return{err:"Type the start time like 10am or 2:30pm."};
  var s=new Date(dd+"T"+tf);
+ if(ld===null)return{err:"Type the last day like 14 Oct or 14/10."};
+ if(ld){if(ld<dd)return{err:"The last day cannot be before the first day."};
+  if(ld>dd){var tl=(ut||"").trim()?parseTime(ut):"23:59";if(!tl)return{err:"Type the end time like 12pm, or leave it empty to run to the end of the last day."};var e0=new Date(ld+"T"+tl);if(e0<=s)return{err:"The end must be after the start."};return{s:s,e:e0,open:false}}}
  if(!(ut||"").trim())return{s:s,e:new Date(s.getTime()+4*36e5),open:true};
  var tu=parseTime(ut);if(!tu)return{err:"Type the end time like 12pm, or leave it empty if it ends when it ends."};
  var e=new Date(dd+"T"+tu);if(e<s)e.setDate(e.getDate()+1);
@@ -210,7 +216,10 @@ function endHint(){
  var ft=parseTime($(pre[0]).value),ut=($(pre[1]).value||"").trim(),dd=parseDate($(pre[2]).value),msg="";
  if(!ut)msg="No end time. It will show as \u201cfrom "+(ft?tm(new Date("2000-01-01T"+ft)):"the start time")+"\u201d and fade out a few hours later.";
  else{var tu=parseTime(ut);if(ft&&tu&&dd){var s=new Date(dd+"T"+ft),e=new Date(dd+"T"+tu);if(e<s)msg="Ends the next day at "+tm(e)+"."}}
- $(pre[3]).textContent=msg;circleWarn(dd)}
+ var l3=$(pre[2]==="pd"?"pd3":"ed3"),ld3=l3&&(l3.value||"").trim()?parseDate(l3.value):"";
+ if(ld3&&dd&&ld3>dd){var tu3=ut?parseTime(ut):"23:59";msg=tu3?"Runs from "+dayLabel(new Date(dd+"T"+(ft||"00:00")))+" until "+dayLabel(new Date(ld3+"T"+tu3))+(ut?" at "+tm(new Date("2000-01-01T"+tu3)):", to the end of the day")+".":msg}
+ else if(ld3&&dd&&ld3<dd)msg="The last day cannot be before the first day.";
+ $(pre[3]).textContent=msg;circleWarn(ld3&&dd&&ld3>dd?ld3:dd)}
 function isoOf(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
 function endWarn(cids,dd){
  if(!dd)return "";var bad=[];
@@ -224,7 +233,7 @@ function circleWarn(dd){var el=$("cwarn");if(!el)return;var base=(el.dataset.bas
  var ids=base.concat(pickedCircles().filter(function(x){return base.indexOf(x)<0}));var w=endWarn(ids,dd);el.innerHTML=w;el.style.display=w?"":"none"}
 document.addEventListener("change",function(e){if(e.target&&e.target.dataset&&e.target.dataset.pc!==undefined)endHint();if(e.target&&e.target.id==="pk"){var sh=e.target.value==="dropin"?"":"none";["pcopy_l","pcopy_h"].forEach(function(i){if($(i))$(i).style.display=sh});if($("ppay_w"))$("ppay_w").style.display=e.target.value==="party"?"":"none"}});
 document.addEventListener("input",function(e){var t=e.target;if(t&&t.id==="hq"){var q=nrm(t.value);[].forEach.call(document.querySelectorAll("#sheet [data-nm]"),function(r){r.style.display=!q||r.dataset.nm.indexOf(q)>-1?"":"none"});[].forEach.call(document.querySelectorAll("#sheet .acc"),function(g){var b=g.querySelector(".acch");if(!b||!/^hc_/.test(b.dataset.k||""))return;var vis=[].filter.call(g.querySelectorAll("[data-nm]"),function(r){return r.style.display!=="none"}).length;g.style.display=(vis||!q)?"":"none";if(q&&vis){g.classList.add("open");profOpen[b.dataset.k]=true}})}});
-document.addEventListener("input",function(e){if(e.target&&/^(pf|pe|pd|ef|ee|ed2)$/.test(e.target.id))endHint();if(e.target&&/^(pn|en|dn)$/.test(e.target.id)){var cc=$(e.target.id+"_c");if(cc)cc.textContent=e.target.value.length+" / 140"}if(e.target&&/^(cd|cdesc)$/.test(e.target.id)){var cd2=$(e.target.id+"_c");if(cd2)cd2.textContent=e.target.value.length+" / 60"}});
+document.addEventListener("input",function(e){if(e.target&&/^(pf|pe|pd|pd3|ef|ee|ed2|ed3)$/.test(e.target.id))endHint();if(e.target&&/^(pn|en|dn)$/.test(e.target.id)){var cc=$(e.target.id+"_c");if(cc)cc.textContent=e.target.value.length+" / 140"}if(e.target&&/^(cd|cdesc)$/.test(e.target.id)){var cd2=$(e.target.id+"_c");if(cd2)cd2.textContent=e.target.value.length+" / 60"}});
 function parseTime(t){t=(t||"").toLowerCase().replace(/\./g,"").trim();var m=t.match(/^(\d{1,2})(?:[:\s]?(\d{2}))?\s*(am|pm|a|p)?$/);if(!m)return null;var h=+m[1],mi=m[2]?+m[2]:0,ap=m[3];if(mi>59)return null;
  if(ap){if(h<1||h>12)return null;if(ap[0]==="p"&&h<12)h+=12;if(ap[0]==="a"&&h===12)h=0}else if(h>23)return null;
  return pad(h)+":"+pad(mi)}
@@ -446,6 +455,7 @@ function planSheet(){
  +'<details style="margin-top:12px"><summary style="font-weight:600;cursor:pointer">Hide from specific people (optional)</summary><p class="hint">They will not see this activity or who replied. They are not told. People you always hide are ticked already.</p><div id="hidelist" class="card" style="padding:6px 12px;margin-top:8px"><p class="hint">Loading...</p></div></details>';
  var when='<div class="two"><div><label>From (24 hour)</label>'+timeSel("pf",qtr(new Date()),false)+'</div><div><label>Until (optional)</label>'+timeSel("pe","",true)+'</div></div>'
  +'<label for="pd">Day</label><input id="pd" type="text" inputmode="text" autocomplete="off" placeholder="e.g. 12 Oct, 12/10 or tomorrow" value="'+fmtDate(todayStr())+'"><input type="date" id="pd_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none"><div style="display:flex;gap:6px;margin:8px 0"><button type="button" class="b sm" data-a="cal" data-t="pd">Calendar</button><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="0" data-keep="1">Today</button><button type="button" class="b sm" data-a="qd" data-t="pd" data-n="1" data-keep="1">Tomorrow</button></div>'
+ +'<label for="pd3">Last day (optional)</label><input id="pd3" type="text" inputmode="text" autocomplete="off" placeholder="Only for trips, holidays or camping"><input type="date" id="pd3_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none"><div style="display:flex;gap:6px;margin:8px 0"><button type="button" class="b sm" data-a="cal" data-t="pd3">Calendar</button><button type="button" class="b sm" data-a="clrd" data-t="pd3">Clear</button></div><p class="hint" style="margin-top:0">For more than one day, add the last day. The times above are when it starts on the first day and ends on the last. Leave the end time empty to run to the end of the last day.</p>'
  +'<p class="hint" id="pend"></p><div id="cwarn" data-base="" style="display:none;border:2px solid #E8B923;border-radius:12px;padding:10px 12px;margin:10px 0;font-size:14px"></div>';
  var share='<p class="hint" style="margin-top:0">Tick one or more circles. Only people in those circles will see it, and they get an alert. Someone in several of them sees it once.</p><div class="card" style="padding:6px 12px" id="pcs">'+sortedCircles().map(function(c,i){var on=sel!=="all"?c.circle_id===sel:i===0;return '<label style="display:flex;align-items:center;gap:10px;margin:6px 0;font-weight:600"><input type="checkbox" style="width:22px;height:22px;flex:none" data-pc="'+esc(c.circle_id)+'"'+(on?' checked':'')+'><span>'+esc(cname(c.circle_id,c.circles.name))+'</span></label>'}).join("")+'</div>'
  +(copyOK?'<label id="pcopy_l" style="display:flex;align-items:center;gap:10px;font-weight:600;margin:12px 0 6px"><input type="checkbox" id="pcopy" checked style="width:22px;height:22px;flex:none"><span>Let people in my circles copy this</span></label><p class="hint" id="pcopy_h" style="margin-top:0">Pop round only. They can copy it into their own circles and become the organiser of their copy. You are not shown or told. An activity hidden from anyone cannot be copied.</p>':'');
@@ -667,7 +677,7 @@ function dupSheet(pid){
  var s=new Date(p.starts_at),e=new Date(p.ends_at),taken=pcOf(p),mine=sortedCircles().filter(function(c){return taken.indexOf(c.circle_id)<0});
  if(!mine.length){setSheet('<h2>Duplicate this activity</h2><p class="hint">You are not in any other circle yet, so there is nowhere to copy it to. Create or join another circle first.</p><button class="link" data-a="close">Close</button>');return}
  setSheet('<h2>Duplicate this activity</h2><p class="hint">You will be the organiser of your copy. The original organiser is not told and is not shown. People who already see the original will not get yours, unless the original is cancelled. The day and time stay the same.</p>'
- +'<div class="card"><b>'+esc(dayLabel(s))+', '+(p.open_ended?'from '+tm(s):tm(s)+'\u2013'+tm(e))+'</b></div>'
+ +'<div class="card"><b>'+esc(whenText(p,s,e))+'</b></div>'
  +'<label for="dt">What\'s the activity?</label><input id="dt" value="'+esc(p.title)+'">'
  +locBox("d",p.place_name,p.place_url,"")
  +'<label for="dn">Note (optional)</label><textarea id="dn" rows="2" maxlength="140">'+esc((p.note||"").slice(0,140))+'</textarea><div class="cc" id="dn_c">'+Math.min(140,(p.note||"").length)+' / 140</div>'
@@ -693,6 +703,7 @@ var what='<label for="et">What\'s the activity?</label><input id="et" value="'+e
  var when='<div class="two"><div><label>From (24 hour)</label>'+timeSel("ef",pad(s.getHours())+":"+pad(s.getMinutes()),false)+'</div><div><label>Until (optional)</label>'+timeSel("ee",p.open_ended?"":pad(e.getHours())+":"+pad(e.getMinutes()),true)+'</div></div>'
  +'<label for="ed2">Day</label><input id="ed2" type="text" autocomplete="off" placeholder="e.g. 12 Oct, 12/10 or tomorrow" value="'+fmtDate(iso)+'">'
  +'<input type="date" id="ed2_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none"><div style="display:flex;gap:6px;margin:8px 0"><button type="button" class="b sm" data-a="cal" data-t="ed2">Calendar</button><button type="button" class="b sm" data-a="qd" data-t="ed2" data-n="0" data-keep="1">Today</button><button type="button" class="b sm" data-a="qd" data-t="ed2" data-n="1" data-keep="1">Tomorrow</button></div>'
+ +'<label for="ed3">Last day (optional)</label><input id="ed3" type="text" inputmode="text" autocomplete="off" placeholder="Only for trips, holidays or camping" value="'+((!p.open_ended&&multiDay(s,e))?fmtDate(isoOf(e)):"")+'"><input type="date" id="ed3_c" tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none"><div style="display:flex;gap:6px;margin:8px 0"><button type="button" class="b sm" data-a="cal" data-t="ed3">Calendar</button><button type="button" class="b sm" data-a="clrd" data-t="ed3">Clear</button></div><p class="hint" style="margin-top:0">For more than one day, add the last day. Leave the end time empty to run to the end of the last day.</p>'
  +'<p class="hint" id="eend"></p><div id="cwarn" data-base="'+esc(baseHid.join(","))+'" style="display:none;border:2px solid #E8B923;border-radius:12px;padding:10px 12px;margin:10px 0;font-size:14px"></div>';
  var share='<p class="hint" style="margin-top:0">Tick the circles that should see this activity. Tick a new circle to add it, and its people get an alert. Untick a circle to take the activity away from it: people who are only in that circle stop seeing it, their replies are removed, and they are not told. At least one circle has to stay ticked.</p><div class="card" style="padding:6px 12px">'+listC.map(function(c){return '<label style="display:flex;align-items:center;gap:10px;margin:6px 0;font-weight:600"><input type="checkbox" style="width:22px;height:22px;flex:none" data-pc="'+esc(c.circle_id)+'"'+(curC.indexOf(c.circle_id)>-1?' checked':'')+'><span>'+esc(cname(c.circle_id,c.circles.name))+'</span></label>'}).join("")+'</div>'
  +((copyOK&&p.kind==="dropin"&&!copyOf[p.id]&&typeof p.allow_copy==="boolean")?'<label style="display:flex;align-items:center;gap:10px;font-weight:600;margin:12px 0 2px"><input type="checkbox" id="ecopy" style="width:22px;height:22px;flex:none"'+(p.allow_copy?' checked':'')+'><span>Let people in my circles copy this</span></label><p class="hint" style="margin-top:0">They become the organiser of their own copy. You are not shown or told. Not possible if the activity is hidden from anyone.</p>':'');
@@ -843,7 +854,7 @@ function draw(){
   var clash=(stt==="going"||stt==="maybe")&&!ended?clashesFor(p.id):[];
   var spill=stt?'<span class="spill">'+(stt==="going"?"\u2713 Going":stt==="maybe"?"Maybe":"Yours")+'</span>'+(clash.length?'<span class="spill" style="--st:#B3261E">\u26A0 Clash</span>':''):'';
   var head='<article class="card '+(stt?"st ":"")+(party?"party":isNow?"now":"")+(hand?" canc":"")+(ended||(canc&&!hand)?" old":"")+'"'+(stt?' style="--st:'+stc+'"':'')+'><div class="cgrid" data-a="togglecard" data-p="'+esc(p.id)+'"><div class="cl"><div class="title">'+esc(p.title)+'</div><div class="where">'+placeHtml(p)+'</div>'
-  +'<div class="when">'+esc(dayLabel(s))+', '+(p.open_ended?'from '+tm(s):tm(s)+'–'+tm(e)+(e.toDateString()!==s.toDateString()?' ('+esc(e.toLocaleDateString(undefined,{weekday:"short"}))+')':''))+((p.who_names||(p.child&&p.child.first_name))?' · '+esc(p.who_names||p.child.first_name):'')+'</div>'+(open&&p.note?'<p class="note">'+esc(p.note)+'</p>':'')+(open?stats:'')+'</div>'
+  +'<div class="when">'+esc(whenText(p,s,e))+((p.who_names||(p.child&&p.child.first_name))?' · '+esc(p.who_names||p.child.first_name):'')+'</div>'+(open&&p.note?'<p class="note">'+esc(p.note)+'</p>':'')+(open?stats:'')+'</div>'
   +'<div class="cr"><button class="cchev" data-a="togglecard" data-p="'+esc(p.id)+'" aria-expanded="'+open+'" aria-label="'+(open?"Show less":"Show more")+'">'+(open?"\u25B4":"\u25BE")+'</button>'+(open||canc?'<span class="tag '+(party?"p":"")+(canc?" x":"")+'">'+(canc?(hand?"Organiser cancelled":"Cancelled"):ended?"Ended":party?"RSVP":isNow?"Happening now":"Pop round")+'</span>':'')+(open?'<div class="cpills col">'+pills+'</div>':spill)+'</div></div>';
   var tail=''
   +(canc?'<div class="where" style="color:var(--coral);font-weight:700;margin-top:8px">'+(host?'You cancelled this.':esc(orig)+' cancelled this.')+(hand?(host?' People who said they were going can keep it going until ':' You can keep it going until ')+tm(new Date(p.handover_until))+'.':'')+'</div>':'')+(!canc&&p.orig_host_id&&p.orig_host_id!==p.host_id?'<div class="where" style="font-size:12px;margin-top:6px">Originally planned by '+esc(orig)+'</div>':'')+(p.edited_at&&!ended&&!canc?'<div class="where" style="color:var(--coral);font-weight:700;margin-top:6px">Updated '+esc(ago(p.edited_at))+'</div>':'')
@@ -1009,6 +1020,7 @@ async function act(b){
   if(kw0){var kq=await sb.rpc("set_circle_keyword",{p_circle:q.data,p_secret:kw0,p_decoys:kd0});if(kq.error){await load();circlesSheet("Circle created, but the secret word was not saved ("+kq.error.message+"). Open the circle to try again.");return}}
   await load();circlesSheet("Circle created. Share the code so people can ask to join."+(kw0?" Tell them the secret word yourself.":""))}
  else if(a==="qd"){unflash();var el=$(b.dataset.t),n=+b.dataset.n;if(!n&&!b.dataset.keep)el.value="";else{var d=new Date();d.setDate(d.getDate()+n);el.value=fmtDate(d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()))}endHint()}
+ else if(a==="clrd"){$(b.dataset.t).value="";unflash();endHint()}
  else if(a==="cal"){var ci2=$(b.dataset.t+"_c");try{var cur=parseDate($(b.dataset.t).value);if(cur)ci2.value=cur;ci2.onchange=function(){if(ci2.value){$(b.dataset.t).value=fmtDate(ci2.value);unflash();endHint()}};ci2.showPicker?ci2.showPicker():ci2.click()}catch(e2){ci2.click()}}
  else if(a==="pickword"){joinInfo.word=b.dataset.w;findSheet()}
  else if(a==="joinshow"){joinInfo.show=!joinInfo.show;findSheet()}
@@ -1087,7 +1099,7 @@ async function act(b){
   if(rudeCheck(["pt","pw","pn"],"pe2"))return;
   var wp=whoPicked();if(!wp.count){E("pe2","Tick at least one person who is going.");return}
   var dd=parseDate(v("pd"));if(!dd){E("pe2","Type the day like 12 Oct, 12/10 or tomorrow.");return}
-  var bt=buildTimes(dd,v("pf"),v("pe"));if(bt.err){E("pe2",bt.err);return}
+  var bt=buildTimes(dd,v("pf"),v("pe"),lastDay("pd3"));if(bt.err){E("pe2",bt.err);return}
   var s=bt.s,e=bt.e;
   var pcl=pickedCircles();if(!pcl.length){E("pe2","Tick at least one circle to share with.");return}
   var cpa={p_circles:pcl,p_child:wp.childId,p_who:wp.names,p_kind:v("pk"),p_title:t,p_place:v("pw")||"Location to be shared",p_starts:s.toISOString(),p_ends:e.toISOString(),p_open:bt.open,p_note:v("pn")||null,p_hide:hidePicked()};
@@ -1131,7 +1143,7 @@ async function act(b){
   if(rudeCheck(["et","ew","en"],"ee2"))return;
   var wq=whoPicked();if(!wq.count){E("ee2","Tick at least one person who is going.");return}
   var d2=parseDate(v("ed2"));if(!d2){E("ee2","Type the day like 12 Oct, 12/10 or tomorrow.");return}
-  var bt2=buildTimes(d2,v("ef"),v("ee"));if(bt2.err){E("ee2",bt2.err);return}
+  var bt2=buildTimes(d2,v("ef"),v("ee"),lastDay("ed3"));if(bt2.err){E("ee2",bt2.err);return}
   var s2=bt2.s,e2=bt2.e;
   var curP=pcs[b.dataset.p]||[],listed=[].slice.call(document.querySelectorAll("#sheet [data-pc]")).map(function(x){return x.dataset.pc}),picked=pickedCircles();
   var addc=picked.filter(function(x){return curP.indexOf(x)<0}),rmc=listed.filter(function(x){return curP.indexOf(x)>-1&&picked.indexOf(x)<0});
